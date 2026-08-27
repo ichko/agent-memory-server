@@ -1,0 +1,27 @@
+# Provider recipes
+
+Each wrapper implements the same `MemoryStore` contract: ingest sessions, retrieve for a question, reset between examples. Install the matching `uv` extra, set keys from the recipe, then run a small smoke (oracle, one question) before a full Small v1 run:
+
+```bash
+uv run memory-bench providers
+uv run memory-bench run --provider <id> --dataset longmemeval --split oracle --limit 1 --run-name smoke
+uv run memory-bench judge --experiment smoke
+```
+
+Pass wrapper options with `--provider-param KEY=VALUE`.
+
+These pages cite public vendor docs only. Use placeholder project ids, regions, and keys. This repository does not claim that every cloud wrapper was live-tested.
+
+| Provider | Extra | CLI id |
+|----------|-------|--------|
+| [Redis AMS (REST and MCP)](redis-ams.md) | `redis-ams`, `redis-ams-mcp` | `redis-ams`, `redis-ams-mcp` |
+| [Mem0](mem0.md) | `mem0` | `mem0` |
+| [LangMem](langmem.md) | `langmem` | `langmem` |
+| [Zep](zep.md) | `zep` | `zep` |
+| [Graphiti](graphiti.md) | `graphiti` | `graphiti` |
+| [Mastra Observational Memory compatibility status](mastra-om.md) | — | Not registered |
+| [Emergence Simple Fast compatibility status](emergence.md) | — | Not registered |
+| [Supermemory](supermemory.md) | `supermemory` | `supermemory` |
+| [Google Vertex Memory Bank](google-vertex-memory-bank.md) | `google` | `vertex-memory-bank` |
+| [AWS Bedrock AgentCore](aws-bedrock-agentcore.md) | `aws` | `bedrock-agentcore` |
+| [Oracle Agent Memory](oracle-agent-memory.md) | `oracle` | `oracle-agent-memory` |

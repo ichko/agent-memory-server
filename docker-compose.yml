@@ -1,0 +1,33 @@
+services:
+  redis:
+    image: redis:8
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+
+  agent-memory-server:
+    image: redislabs/agent-memory-server:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      REDIS_URL: redis://redis:6379
+      DISABLE_AUTH: "true"
+      LONG_TERM_MEMORY: "true"
+      ENABLE_DISCRETE_MEMORY_EXTRACTION: "true"
+      EXTRACTION_DEBOUNCE_SECONDS: "1"
+    command: agent-memory api --host 0.0.0.0 --port 8000 --task-backend=asyncio
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis_data:
