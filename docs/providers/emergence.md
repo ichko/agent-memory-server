@@ -3,12 +3,9 @@
 The public reference implementation is available at
 [EmergenceAI/emergence_simple_fast](https://github.com/EmergenceAI/emergence_simple_fast).
 
-The benchmark source used during research contained a local Python
-reimplementation of its retrieval and prompting strategy, not a wrapper around
-a public provider API. That strategy implementation is outside this
-repository's publication boundary.
+It is a reference retrieval pipeline, not a hosted service or a client SDK, so
+there is nothing for a provider wrapper to call.
 
 The package keeps a compatibility class that raises an actionable error, but it
-is not registered as a runnable benchmark provider. A future adapter should
-call a supported public service or package interface without copying strategy
-logic into this repository.
+is not registered as a runnable benchmark provider. An adapter becomes possible
+once there is a supported service or package interface to call.

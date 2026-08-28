@@ -19,7 +19,7 @@ uv sync --extra supermemory
 
 ## Auth
 
-Create a key in the [developer console](https://console.supermemory.ai) (API Keys). Do not use consumer-app logins as API credentials.
+Create a key in the [developer console](https://console.supermemory.ai) under API Keys. A consumer-app login is not an API credential.
 
 ```bash
 OPENAI_API_KEY=replace-me
@@ -35,8 +35,7 @@ No local cluster. Isolation uses container tags derived from the example `user_i
 ```bash
 uv run memory-bench run \
   --provider supermemory \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-supermemory \
   --provider-param model=gpt-4o \
@@ -47,7 +46,7 @@ uv run memory-bench judge --experiment smoke-supermemory --judge-model gpt-4o
 
 ## Cleanup
 
-Delete documents and container tags for `bench-*` users in the console or via the documents API. Rotate the key if it was shared.
+Delete documents and container tags for `bench-*` users in the console or via the documents API.
 
 ## Notes
 

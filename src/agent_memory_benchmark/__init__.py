@@ -5,10 +5,7 @@ from agent_memory_benchmark.benchmark.models import (
     ExperimentMetadata,
     JudgmentRecord,
 )
-from agent_memory_benchmark.datasets import (
-    LongMemEvalAdapter,
-    LongMemEvalV2Adapter,
-)
+from agent_memory_benchmark.datasets import LongMemEvalAdapter
 
 __version__ = "0.1.0"
 
@@ -17,6 +14,5 @@ __all__ = [
     "ExperimentMetadata",
     "JudgmentRecord",
     "LongMemEvalAdapter",
-    "LongMemEvalV2Adapter",
     "__version__",
 ]

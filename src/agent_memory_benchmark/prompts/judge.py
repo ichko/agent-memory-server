@@ -1,4 +1,4 @@
-"""Published-protocol LongMemEval v1 judge prompts."""
+"""Published-protocol LongMemEval judge prompts."""
 
 DEFAULT = (
     "I will give you a question, a correct answer, and a model response. "

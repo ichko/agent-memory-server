@@ -50,8 +50,7 @@ IAM is your responsibility. Scope the policy to this experiment account.
 ```bash
 uv run memory-bench run \
   --provider bedrock-agentcore \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-agentcore \
   --provider-param model=gpt-4o \
@@ -74,4 +73,4 @@ and billing for leftover extraction jobs.
 - Long-term extraction is asynchronous. The wrapper polls until records appear.
 - AWS extraction cost is not in OpenAI `TokenUsage`.
 - `namespace_path` must match the strategy configured on the supplied memory.
-- This recipe is from public AWS docs. It is not a claim that AgentCore was live-tested in this checkout.
+- This recipe comes from public AWS docs. It was not run against a live AgentCore memory.

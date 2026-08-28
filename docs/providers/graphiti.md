@@ -38,15 +38,14 @@ NEO4J_PASSWORD=REPLACE_ME
 
 ## Provision
 
-Start Neo4j. Confirm bolt on `7687`. The wrapper builds Graphiti indices on first use. Use a dedicated database or empty instance. Do not share a production graph.
+Start Neo4j. Confirm bolt on `7687`. The wrapper builds Graphiti indices on first use and deletes its group between examples, so point it at a dedicated or empty database.
 
 ## Run
 
 ```bash
 uv run memory-bench run \
   --provider graphiti \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-graphiti \
   --provider-param model=gpt-4o \

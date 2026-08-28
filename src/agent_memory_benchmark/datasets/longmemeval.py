@@ -1,4 +1,4 @@
-"""Public adapter for LongMemEval v1."""
+"""Public adapter for LongMemEval."""
 
 from __future__ import annotations
 

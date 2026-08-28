@@ -133,19 +133,19 @@ def test_judge_prompt_selects_abstention_and_temporal_rubrics() -> None:
 
 
 @pytest.mark.asyncio
-async def test_judge_rejects_v2_experiment_before_api_call(tmp_path: Path) -> None:
-    run_dir = tmp_path / "v2"
+async def test_judge_rejects_unknown_benchmark_before_api_call(tmp_path: Path) -> None:
+    run_dir = tmp_path / "other"
     run_dir.mkdir()
     answer = _answer("q1", "static")
-    answer.dataset = "LongMemEval-V2"
+    answer.dataset = "SomethingElse"
     append_jsonl(run_dir / "answers.jsonl", answer)
     ExperimentMetadata(
-        run_name="v2",
-        benchmark="longmemeval-v2",
+        run_name="other",
+        benchmark="not-longmemeval",
         provider="fake",
         benchmark_config={},
         provider_params={},
     ).save(run_dir / "metadata.json")
 
-    with pytest.raises(ValueError, match="supports LongMemEval v1 only"):
+    with pytest.raises(ValueError, match="supports LongMemEval only"):
         await judge_experiment(experiment=str(run_dir), results_root=tmp_path)

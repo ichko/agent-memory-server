@@ -53,8 +53,7 @@ Per-example isolation uses `scope.user_id`, not separate engines.
 ```bash
 uv run memory-bench run \
   --provider vertex-memory-bank \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-vertex-mb \
   --provider-param model=gpt-4o \
@@ -68,11 +67,11 @@ uv run memory-bench judge --experiment smoke-vertex-mb --judge-model gpt-4o
 
 ## Cleanup
 
-Delete the Agent Engine (and Memory Bank data) in Cloud Console or with `gcloud` / the Agent Engine API. Confirm billing stops. Do not leave preview engines idle.
+Delete the Agent Engine (and Memory Bank data) in Cloud Console or with `gcloud` / the Agent Engine API. An idle engine keeps billing.
 
 ## Notes
 
 - `generate_memories` is a long-running operation managed by the Google SDK.
 - Gemini extraction tokens are not in harness totals.
 - API names and SKUs move as Memory Bank leaves preview. Prefer current Google docs over this page if they disagree.
-- This recipe was written from public docs. It is not a claim that Memory Bank was live-tested in this checkout.
+- This recipe was written from public docs. It was not run against a live Agent Engine.

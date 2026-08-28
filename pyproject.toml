@@ -22,8 +22,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-redis-ams = ["agent-memory-client"]
-redis-ams-mcp = ["httpx-sse", "mcp>=1"]
 mem0 = ["mem0ai"]
 langmem = ["langchain-openai", "langmem"]
 zep = ["zep-cloud"]
@@ -33,16 +31,13 @@ google = ["google-cloud-aiplatform[agent-engines]>=1.95", "google-genai>=1"]
 aws = ["bedrock-agentcore", "boto3"]
 oracle = ["oracleagentmemory>=26.4.0", "oracledb", "tiktoken"]
 all-providers = [
-    "agent-memory-client",
     "bedrock-agentcore",
     "boto3",
     "google-cloud-aiplatform[agent-engines]>=1.95",
     "google-genai>=1",
     "graphiti-core>=0.29",
-    "httpx-sse",
     "langchain-openai",
     "langmem",
-    "mcp>=1",
     "mem0ai",
     "oracleagentmemory>=26.4.0",
     "oracledb",

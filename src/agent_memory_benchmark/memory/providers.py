@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import time
 import uuid
-from contextlib import AsyncExitStack
 from datetime import datetime, timezone
 from typing import Any
 
@@ -58,212 +56,6 @@ class _AnsweringStore(MemoryStore):
 
     def get_store_metadata(self) -> dict[str, Any]:
         return {"answer_model": self._model}
-
-
-class RedisAMSMemoryStore(_AnsweringStore):
-    """Redis Agent Memory Server REST adapter using server-default extraction."""
-
-    def __init__(
-        self,
-        base_url: str | None = None,
-        *,
-        namespace: str = "benchmark",
-        user_id: str = "benchmark",
-        model: str = "gpt-4o",
-        search_limit: int = 10,
-    ) -> None:
-        super().__init__(model=model)
-        try:
-            from agent_memory_client import MemoryAPIClient, MemoryClientConfig
-        except ImportError as exc:
-            raise _missing(
-                "agent-memory-client", "redis-ams", "Redis Agent Memory Server", exc
-            ) from exc
-        self._client = MemoryAPIClient(
-            MemoryClientConfig(
-                base_url=base_url
-                or os.environ.get("AMS_BASE_URL", "http://localhost:8000"),
-                default_namespace=namespace,
-            )
-        )
-        self._namespace = namespace
-        self._user_id = user_id
-        self._search_limit = search_limit
-        self._session_ids: list[str] = []
-
-    async def close(self) -> None:
-        await self._client.close()
-
-    async def ingest(self, sessions: list[SessionLike]) -> None:
-        from agent_memory_client.models import MemoryMessage, WorkingMemory
-
-        for index, session in enumerate(sessions):
-            session_id = f"{self._namespace}-{self._user_id}-{index}"
-            self._session_ids.append(session_id)
-            timestamp = session.date or datetime.now(timezone.utc)
-            messages = [
-                MemoryMessage(
-                    role=normalize_role(message.speaker),
-                    content=message.text,
-                    created_at=timestamp,
-                )
-                for message in session.messages
-                if message.text.strip()
-            ]
-            await self._client.put_working_memory(
-                session_id,
-                WorkingMemory(
-                    session_id=session_id,
-                    namespace=self._namespace,
-                    user_id=self._user_id,
-                    messages=messages,
-                ),
-            )
-
-    async def _search(self, text: str, limit: int) -> list[Any]:
-        from agent_memory_client.filters import UserId
-
-        response = await self._client.search_long_term_memory(
-            text=text, user_id=UserId(eq=self._user_id), limit=limit
-        )
-        return list(response.memories or [])
-
-    async def query(
-        self, question: str, *, question_date: str | None = None
-    ) -> QueryResult:
-        memories = await self._search(question, self._search_limit)
-        return await self._answer(
-            "\n".join(memory.text for memory in memories), question, question_date
-        )
-
-    async def list_memories(self) -> list[str]:
-        return [memory.text for memory in await self._search("*", 100)]
-
-    async def reset(self) -> None:
-        memories = await self._search("*", 100)
-        ids = [memory.id for memory in memories if memory.id]
-        if ids:
-            await self._client.delete_long_term_memories(ids)
-        for session_id in self._session_ids:
-            try:
-                await self._client.delete_working_memory(session_id=session_id)
-            except Exception:
-                pass
-        self._session_ids.clear()
-        self._token_usage = TokenUsage()
-
-
-class RedisAMSMCPStore(_AnsweringStore):
-    """Redis Agent Memory Server MCP adapter without LLM-authored tool prompts."""
-
-    def __init__(
-        self,
-        mcp_url: str | None = None,
-        *,
-        namespace: str = "benchmark",
-        user_id: str = "benchmark",
-        model: str = "gpt-4o",
-        search_limit: int = 10,
-    ) -> None:
-        super().__init__(model=model)
-        self._mcp_url = mcp_url or os.environ.get(
-            "AMS_MCP_URL", "http://localhost:9050/sse"
-        )
-        self._namespace = namespace
-        self._user_id = user_id
-        self._search_limit = search_limit
-        self._stack: AsyncExitStack | None = None
-        self._session: Any = None
-
-    async def __aenter__(self) -> RedisAMSMCPStore:
-        try:
-            from mcp.client.session import ClientSession
-            from mcp.client.sse import sse_client
-        except ImportError as exc:
-            raise _missing("mcp", "redis-ams-mcp", "Redis AMS MCP", exc) from exc
-        self._stack = AsyncExitStack()
-        await self._stack.__aenter__()
-        read, write = await self._stack.enter_async_context(sse_client(self._mcp_url))
-        self._session = await self._stack.enter_async_context(
-            ClientSession(read, write)
-        )
-        await self._session.initialize()
-        return self
-
-    async def close(self) -> None:
-        if self._stack:
-            await self._stack.aclose()
-            self._stack = None
-            self._session = None
-
-    async def _call(self, name: str, arguments: dict[str, Any]) -> Any:
-        if self._session is None:
-            raise RuntimeError("Use RedisAMSMCPStore as an async context manager")
-        raw = await self._session.call_tool(name, arguments)
-        payload = raw.model_dump(by_alias=True) if hasattr(raw, "model_dump") else raw
-        structured = (
-            payload.get("structuredContent") if isinstance(payload, dict) else None
-        )
-        if structured is not None:
-            return structured
-        for item in payload.get("content", []) if isinstance(payload, dict) else []:
-            text = (
-                item.get("text")
-                if isinstance(item, dict)
-                else getattr(item, "text", None)
-            )
-            if text:
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError:
-                    return text
-        return payload
-
-    async def ingest(self, sessions: list[SessionLike]) -> None:
-        memories = []
-        for session in sessions:
-            for message in session.messages:
-                if message.text.strip():
-                    text = (
-                        f"[{session.label}] {normalize_role(message.speaker)}: "
-                        f"{message.text}"
-                    )
-                    memories.append(
-                        {
-                            "text": text,
-                            "user_id": self._user_id,
-                            "namespace": self._namespace,
-                        }
-                    )
-        if memories:
-            await self._call("create_long_term_memories", {"memories": memories})
-
-    async def _search(self, text: str, limit: int) -> list[dict[str, Any]]:
-        result = await self._call(
-            "search_long_term_memory",
-            {"text": text, "user_id": {"eq": self._user_id}, "limit": limit},
-        )
-        return result.get("memories", []) if isinstance(result, dict) else []
-
-    async def query(
-        self, question: str, *, question_date: str | None = None
-    ) -> QueryResult:
-        memories = await self._search(question, self._search_limit)
-        return await self._answer(
-            "\n".join(str(memory.get("text", "")) for memory in memories),
-            question,
-            question_date,
-        )
-
-    async def list_memories(self) -> list[str]:
-        return [str(item.get("text", "")) for item in await self._search("*", 100)]
-
-    async def reset(self) -> None:
-        memories = await self._search("*", 100)
-        ids = [item.get("id") for item in memories if item.get("id")]
-        if ids:
-            await self._call("delete_long_term_memories", {"memory_ids": ids})
-        self._token_usage = TokenUsage()
 
 
 class Mem0MemoryStore(_AnsweringStore):
@@ -913,10 +705,9 @@ class OracleAgentMemoryStore(_AnsweringStore):
 class MastraOMStore(MemoryStore):
     def __init__(self, *_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError(
-            "Mastra Observational Memory has no public Python provider adapter. "
-            "The source implementation was intentionally not copied because it "
-            "depends on private prompt logic. Use Mastra's public TypeScript "
-            "package directly and contribute a transport-backed adapter."
+            "Mastra Observational Memory has no public Python client. Use "
+            "Mastra's public TypeScript package and contribute an adapter that "
+            "calls it over a documented transport."
         )
 
     async def ingest(self, sessions: list[SessionLike]) -> None:
@@ -937,8 +728,8 @@ class MastraOMStore(MemoryStore):
 class EmergenceFastStore(MemoryStore):
     def __init__(self, *_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError(
-            "The available Emergence source is a local RAG reimplementation, "
-            "not a public provider API adapter, so it was intentionally omitted."
+            "Emergence Simple Fast publishes a reference pipeline, not a "
+            "service or client SDK, so there is no provider API to wrap."
         )
 
     async def ingest(self, sessions: list[SessionLike]) -> None:

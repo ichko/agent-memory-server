@@ -34,8 +34,7 @@ No local graph DB. Each run creates a Zep user and threads. Graph processing is 
 ```bash
 uv run memory-bench run \
   --provider zep \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-zep \
   --provider-param model=gpt-4o \

@@ -38,8 +38,7 @@ No extra cluster is required for the default in-memory backend. For a durable ve
 ```bash
 uv run memory-bench run \
   --provider mem0 \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-mem0 \
   --provider-param model=gpt-4o

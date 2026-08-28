@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 
 from agent_memory_benchmark.datasets.longmemeval import LongMemEvalAdapter
-from agent_memory_benchmark.datasets.longmemeval_v2 import LongMemEvalV2Adapter
 from agent_memory_benchmark.prompts.judge import BY_TYPE
 
 
@@ -104,96 +103,3 @@ def test_longmemeval_v1_download_follows_huggingface_redirects(
     assert captured["follow_redirects"] is True
     assert "longmemeval_oracle.json" in str(captured["url"])
     assert len(rows) == 1
-
-
-def _write_jsonl(path: Path, rows: list[dict[str, object]]) -> None:
-    path.write_text(
-        "".join(json.dumps(row) + "\n" for row in rows),
-        encoding="utf-8",
-    )
-
-
-def test_longmemeval_v2_groups_shared_haystacks_and_converts_local_files(
-    tmp_path: Path,
-) -> None:
-    (tmp_path / "haystacks").mkdir()
-    _write_jsonl(
-        tmp_path / "questions.jsonl",
-        [
-            {
-                "id": "q2",
-                "domain": "web",
-                "question_type": "dynamic-environment-abs",
-                "question": "Missing?",
-                "answer": "",
-                "eval_function": "judge",
-            },
-            {
-                "id": "q1",
-                "domain": "web",
-                "question_type": "procedure",
-                "question": "How?",
-                "answer": "Click save",
-            },
-            {
-                "id": "enterprise-only",
-                "domain": "enterprise",
-                "question": "Ignored",
-            },
-        ],
-    )
-    _write_jsonl(
-        tmp_path / "trajectories.jsonl",
-        [
-            {
-                "id": "t1",
-                "goal": "Save a record",
-                "start_url": "https://example.test",
-                "states": [
-                    {
-                        "step": 1,
-                        "url": "https://example.test/edit",
-                        "thought": "Need save",
-                        "action": "click(7)",
-                        "accessibility_tree": "first line\nsecond line",
-                    }
-                ],
-            },
-            {"id": "unused", "goal": "Not loaded", "states": []},
-        ],
-    )
-    (tmp_path / "haystacks" / "lme_v2_small.json").write_text(
-        json.dumps({"q1": ["t1"], "q2": ["t1"], "enterprise-only": ["unused"]}),
-        encoding="utf-8",
-    )
-
-    adapter = LongMemEvalV2Adapter(
-        root=tmp_path,
-        axtree_part_chars=12,
-        max_axtree_chars=20,
-    )
-    groups = adapter.haystack_groups()
-    examples = adapter.load()
-
-    assert len(groups) == 1
-    assert groups[0].trajectory_ids == ("t1",)
-    assert {row["id"] for row in groups[0].questions} == {"q1", "q2"}
-    assert len(examples) == 1
-    assert examples[0].metadata["trajectory_ids"] == ["t1"]
-    assert {qa.question_id for qa in examples[0].qa_pairs} == {"q1", "q2"}
-    abstention = next(qa for qa in examples[0].qa_pairs if qa.question_id == "q2")
-    assert abstention.metadata["category"] == "dynamic-abs"
-    assert abstention.metadata["is_abstention"] is True
-
-    session = examples[0].sessions[0]
-    assert session.label.startswith("Trajectory t1")
-    assert session.messages[0].speaker == "user"
-    assert "Task goal: Save a record" in session.messages[0].text
-    assert any(message.speaker == "environment" for message in session.messages)
-    assert adapter.sessions_for(("t1",))[0] is session
-
-
-def test_longmemeval_v2_reports_missing_local_files(tmp_path: Path) -> None:
-    adapter = LongMemEvalV2Adapter(root=tmp_path)
-    with pytest.raises(FileNotFoundError, match="LME_V2_DATA_ROOT"):
-        adapter.load()

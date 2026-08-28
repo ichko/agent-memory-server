@@ -30,8 +30,7 @@ No server. State is in-process for the run.
 ```bash
 uv run memory-bench run \
   --provider langmem \
-  --dataset longmemeval \
-  --split oracle \
+ --split oracle \
   --limit 1 \
   --run-name smoke-langmem \
   --provider-param model=gpt-4o

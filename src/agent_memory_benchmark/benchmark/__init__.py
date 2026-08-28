@@ -9,10 +9,7 @@ from agent_memory_benchmark.benchmark.models import (
     ExperimentMetadata,
     JudgmentRecord,
 )
-from agent_memory_benchmark.benchmark.runner import (
-    run_longmemeval_v1,
-    run_longmemeval_v2,
-)
+from agent_memory_benchmark.benchmark.runner import run_longmemeval_v1
 
 __all__ = [
     "AnswerRecord",
@@ -21,5 +18,4 @@ __all__ = [
     "compute_metrics",
     "judge_experiment",
     "run_longmemeval_v1",
-    "run_longmemeval_v2",
 ]

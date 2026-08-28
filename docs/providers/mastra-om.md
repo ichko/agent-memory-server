@@ -6,11 +6,9 @@ Mastra's public Observational Memory implementation is TypeScript:
 - [API reference](https://mastra.ai/reference/memory/observational-memory)
 - [Mastra source](https://github.com/mastra-ai/mastra)
 
-The benchmark source used during research contained a Python reimplementation
-of the strategy, not a wrapper around a public provider API. Publishing that
-implementation would violate this repository's provider-wrapper boundary.
+There is no public Python client, so this Python harness has no API to wrap.
 
 The package keeps a compatibility class that raises an actionable error, but it
-is not registered as a runnable benchmark provider. A future adapter should
-invoke the public Mastra TypeScript package through a documented transport and
-must not reproduce its strategy inside this Python package.
+is not registered as a runnable benchmark provider. An adapter should call the
+public Mastra TypeScript package over a documented transport, such as a small
+HTTP service you run beside the benchmark.

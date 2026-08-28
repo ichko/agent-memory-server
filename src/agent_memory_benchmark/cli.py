@@ -1,4 +1,4 @@
-"""Command-line interface for the neutral benchmark harness."""
+"""Command-line interface for the LongMemEval harness."""
 
 from __future__ import annotations
 
@@ -18,7 +18,6 @@ from agent_memory_benchmark.benchmark.judge import (
 from agent_memory_benchmark.benchmark.runner import (
     parse_provider_params,
     run_longmemeval_v1,
-    run_longmemeval_v2,
 )
 from agent_memory_benchmark.memory import STORES
 
@@ -41,12 +40,6 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run = subparsers.add_parser("run", help="Run or resume a benchmark")
-    run.add_argument(
-        "--dataset",
-        choices=["longmemeval", "longmemeval-v2"],
-        default="longmemeval",
-        help="Dataset protocol to run (default: longmemeval)",
-    )
     run.add_argument("--provider", required=True, choices=sorted(STORES))
     run.add_argument("--run-name")
     run.add_argument("--results-root", type=Path, default=DEFAULT_RESULTS_ROOT)
@@ -58,12 +51,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--split", choices=["oracle", "small", "medium"], default="small")
     run.add_argument("--concurrency", type=_positive, default=1)
     run.add_argument("--cache-dir", type=Path)
-    run.add_argument("--tier", choices=["small", "medium"], default="small")
-    run.add_argument("--domain", choices=["web", "enterprise", "both"], default="both")
-    run.add_argument("--data-root", type=Path)
-    run.add_argument("--query-concurrency", type=_positive, default=4)
 
-    judge = subparsers.add_parser("judge", help="Judge or resume a LongMemEval v1 run")
+    judge = subparsers.add_parser("judge", help="Judge or resume a LongMemEval run")
     judge.add_argument(
         "--experiment",
         required=True,
@@ -88,30 +77,16 @@ async def _run(args: argparse.Namespace) -> Path:
         params = parse_provider_params(args.provider_param)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
-    if args.dataset == "longmemeval":
-        return await run_longmemeval_v1(
-            provider=args.provider,
-            split=args.split,
-            results_root=args.results_root,
-            run_name=args.run_name,
-            provider_params=params,
-            limit=args.limit,
-            concurrency=args.concurrency,
-            retries=args.retries,
-            cache_dir=args.cache_dir,
-        )
-    domains = ["web", "enterprise"] if args.domain == "both" else [args.domain]
-    return await run_longmemeval_v2(
+    return await run_longmemeval_v1(
         provider=args.provider,
-        tier=args.tier,
-        domains=domains,
+        split=args.split,
         results_root=args.results_root,
         run_name=args.run_name,
         provider_params=params,
-        data_root=args.data_root,
         limit=args.limit,
-        query_concurrency=args.query_concurrency,
+        concurrency=args.concurrency,
         retries=args.retries,
+        cache_dir=args.cache_dir,
     )
 
 

@@ -4,17 +4,16 @@ Each wrapper implements the same `MemoryStore` contract: ingest sessions, retrie
 
 ```bash
 uv run memory-bench providers
-uv run memory-bench run --provider <id> --dataset longmemeval --split oracle --limit 1 --run-name smoke
+uv run memory-bench run --provider <id> --split oracle --limit 1 --run-name smoke
 uv run memory-bench judge --experiment smoke
 ```
 
 Pass wrapper options with `--provider-param KEY=VALUE`.
 
-These pages cite public vendor docs only. Use placeholder project ids, regions, and keys. This repository does not claim that every cloud wrapper was live-tested.
+These pages cite public vendor docs. Replace the placeholder project ids, regions, and keys with your own. The cloud recipes were written from those docs and not run against a live account.
 
 | Provider | Extra | CLI id |
 |----------|-------|--------|
-| [Redis AMS (REST and MCP)](redis-ams.md) | `redis-ams`, `redis-ams-mcp` | `redis-ams`, `redis-ams-mcp` |
 | [Mem0](mem0.md) | `mem0` | `mem0` |
 | [LangMem](langmem.md) | `langmem` | `langmem` |
 | [Zep](zep.md) | `zep` | `zep` |

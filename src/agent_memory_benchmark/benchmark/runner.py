@@ -21,13 +21,8 @@ from agent_memory_benchmark.benchmark.models import (
     experiment_dir,
     read_jsonl,
 )
-from agent_memory_benchmark.datasets import (
-    LongMemEvalAdapter,
-    LongMemEvalV2Adapter,
-    QAPair,
-)
+from agent_memory_benchmark.datasets import LongMemEvalAdapter
 from agent_memory_benchmark.memory import STORES
-from agent_memory_benchmark.prompts import V2_ANSWER_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -179,11 +174,10 @@ async def _query_record(
     ingest_ms: float,
     metadata: dict[str, Any],
     retries: int,
-    query_question: str | None = None,
 ) -> AnswerRecord:
     started = time.perf_counter()
     result = await _retry(
-        lambda: store.query(query_question or qa.question, question_date=question_date),
+        lambda: store.query(qa.question, question_date=question_date),
         attempts=retries,
         label=f"query {qa.question_id or example_idx}",
     )
@@ -223,7 +217,7 @@ async def run_longmemeval_v1(
     retries: int = 3,
     cache_dir: Path | None = None,
 ) -> Path:
-    """Run or resume LongMemEval v1, persisting each completed answer."""
+    """Run or resume LongMemEval, persisting each completed answer."""
     if provider not in STORES:
         raise ValueError(f"Unknown provider {provider!r}; available: {sorted(STORES)}")
     provider_params = provider_params or {}
@@ -312,169 +306,6 @@ async def run_longmemeval_v1(
     metadata.completed_at = (
         datetime.now(timezone.utc).isoformat()
         if len(completed) >= len(examples)
-        else None
-    )
-    metadata.duration_seconds = round(
-        (datetime.now(timezone.utc) - started).total_seconds(), 1
-    )
-    metadata.save(out_dir / "metadata.json")
-    return out_dir
-
-
-async def run_longmemeval_v2(
-    *,
-    provider: str,
-    tier: str,
-    domains: list[str],
-    results_root: Path,
-    run_name: str | None = None,
-    provider_params: dict[str, Any] | None = None,
-    data_root: Path | None = None,
-    limit: int | None = None,
-    query_concurrency: int = 4,
-    retries: int = 3,
-) -> Path:
-    """Run or resume the public V2 shared-haystack protocol."""
-    if provider not in STORES:
-        raise ValueError(f"Unknown provider {provider!r}; available: {sorted(STORES)}")
-    provider_params = provider_params or {}
-    run_name = run_name or default_run_name(f"longmemeval-v2-{tier}", provider)
-    config = {"tier": tier, "domains": domains, "limit": limit}
-    out_dir, metadata, completed = _prepare_run(
-        run_name=run_name,
-        results_root=results_root,
-        benchmark="longmemeval-v2",
-        provider=provider,
-        benchmark_config=config,
-        provider_params=redact_provider_params(provider_params),
-    )
-    answers_path = out_dir / "answers.jsonl"
-    errors_path = out_dir / "errors.jsonl"
-    write_lock = asyncio.Lock()
-    started = datetime.now(timezone.utc)
-    target_keys: set[str] = set()
-    remaining = limit
-
-    for domain in domains:
-        if remaining == 0:
-            break
-        adapter = LongMemEvalV2Adapter(tier=tier, domain=domain, root=data_root)
-        for group_index, group in enumerate(adapter.haystack_groups()):
-            if remaining == 0:
-                break
-            questions = (
-                group.questions if remaining is None else group.questions[:remaining]
-            )
-            if remaining is not None:
-                remaining -= len(questions)
-            target_keys.update(str(row["id"]) for row in questions)
-            pending = [row for row in questions if str(row["id"]) not in completed]
-            if not pending:
-                continue
-            kwargs = {
-                "user_id": f"benchmark-{run_name}-{domain}-{group_index}",
-                **provider_params,
-            }
-            store_cls = STORES[provider]
-            async with store_cls(**kwargs) as store:
-                await store.reset()
-                ingest_started = time.perf_counter()
-                group_sessions = group.sessions
-
-                await _retry(
-                    partial(_ingest, store, group_sessions),
-                    attempts=retries,
-                    label=f"ingest {domain}/{group_index}",
-                )
-                ingest_ms = round((time.perf_counter() - ingest_started) * 1000, 1)
-                memories = await _memories(store)
-                semaphore = asyncio.Semaphore(query_concurrency)
-
-                async def query(
-                    row: dict[str, Any],
-                    current_domain: str,
-                    current_semaphore: asyncio.Semaphore,
-                    current_group_index: int,
-                    num_sessions: int,
-                    current_memories: list[str],
-                    current_ingest_ms: float,
-                ) -> None:
-                    qid = str(row["id"])
-                    qa = QAPair(
-                        question=str(row["question"]),
-                        answer=str(row.get("answer", "")),
-                        question_id=qid,
-                        question_type=row.get("question_type"),
-                        metadata={
-                            "domain": current_domain,
-                            "tier": tier,
-                            "category": row.get("category"),
-                            "is_abstention": row.get("is_abstention"),
-                            "eval_function": row.get("eval_function"),
-                        },
-                    )
-                    async with current_semaphore:
-                        try:
-                            record = await _query_record(
-                                store=store,
-                                example_idx=current_group_index,
-                                qa=qa,
-                                dataset="LongMemEval-V2",
-                                split=f"{tier}-{current_domain}",
-                                provider=provider,
-                                num_sessions=num_sessions,
-                                question_date=None,
-                                memories=current_memories,
-                                ingest_ms=current_ingest_ms,
-                                metadata={},
-                                retries=retries,
-                                query_question=(
-                                    f"{qa.question}\n\n{V2_ANSWER_INSTRUCTIONS}"
-                                ),
-                            )
-                            async with write_lock:
-                                if not metadata.provider_metadata:
-                                    metadata.provider_metadata = (
-                                        store.get_store_metadata()
-                                    )
-                                    metadata.save(out_dir / "metadata.json")
-                                append_jsonl(answers_path, record)
-                                completed.add(qid)
-                        except Exception as exc:
-                            logger.exception("Failed V2 question %s", qid)
-                            async with write_lock:
-                                append_jsonl(
-                                    errors_path,
-                                    {
-                                        "question_id": qid,
-                                        "error_type": type(exc).__name__,
-                                        "error": str(exc),
-                                        "timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
-                                    },
-                                )
-
-                await asyncio.gather(
-                    *(
-                        query(
-                            row,
-                            domain,
-                            semaphore,
-                            group_index,
-                            len(group.trajectory_ids),
-                            memories,
-                            ingest_ms,
-                        )
-                        for row in pending
-                    )
-                )
-                await store.reset()
-
-    metadata.num_answers = len(completed)
-    metadata.completed_at = (
-        datetime.now(timezone.utc).isoformat()
-        if target_keys.issubset(completed)
         else None
     )
     metadata.duration_seconds = round(

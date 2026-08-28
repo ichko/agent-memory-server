@@ -1,4 +1,4 @@
-"""Resumable LongMemEval v1 LLM-as-a-judge evaluation."""
+"""Resumable LongMemEval LLM-as-a-judge evaluation."""
 
 from __future__ import annotations
 
@@ -153,7 +153,7 @@ async def judge_experiment(
     retries: int = 3,
     base_url: str | None = None,
 ) -> dict[str, Any]:
-    """Judge or resume a v1 experiment, durably writing each judgment."""
+    """Judge or resume an experiment, durably writing each judgment."""
     out_dir = resolve_experiment(experiment, results_root)
     answers_path = out_dir / "answers.jsonl"
     judgments_path = out_dir / "judgments.jsonl"
@@ -166,11 +166,10 @@ async def judge_experiment(
     )
     if metadata and metadata.benchmark != "longmemeval-v1":
         raise ValueError(
-            f"The built-in judge supports LongMemEval v1 only, not "
-            f"{metadata.benchmark!r}"
+            f"The built-in judge supports LongMemEval only, not {metadata.benchmark!r}"
         )
     if not metadata and any(record.dataset != "LongMemEval" for record in answers):
-        raise ValueError("The built-in judge supports LongMemEval v1 answers only")
+        raise ValueError("The built-in judge supports LongMemEval answers only")
     if limit is not None:
         answers = answers[:limit]
     judgments = (

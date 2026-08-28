@@ -25,12 +25,8 @@ def test_cli_parser_exposes_current_commands_and_defaults() -> None:
 
     run = parser.parse_args(["run", "--provider", "mem0"])
     assert run.command == "run"
-    assert run.dataset == "longmemeval"
     assert run.split == "small"
     assert run.results_root.name == "experiment_results"
-
-    v2 = parser.parse_args(["run", "--dataset", "longmemeval-v2", "--provider", "mem0"])
-    assert v2.dataset == "longmemeval-v2"
 
     judge = parser.parse_args(
         ["judge", "--experiment", "trial", "--judge-model", "local-judge"]
@@ -61,7 +57,6 @@ def test_provider_listing_is_sorted_in_text_and_json(
 
 def test_registry_imports_without_loading_provider_extras() -> None:
     optional_roots = {
-        "agent_memory_client",
         "bedrock_agentcore",
         "boto3",
         "graphiti_core",
@@ -111,7 +106,7 @@ def test_missing_provider_extra_has_actionable_install_hint(
     ("store_type", "expected"),
     [
         (MastraOMStore, "public TypeScript package"),
-        (EmergenceFastStore, "not a public provider API adapter"),
+        (EmergenceFastStore, "no provider API to wrap"),
     ],
 )
 def test_compatibility_stubs_explain_why_they_cannot_run(

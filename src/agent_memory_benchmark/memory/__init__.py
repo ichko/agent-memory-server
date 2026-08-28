@@ -18,16 +18,12 @@ from agent_memory_benchmark.memory.providers import (
     MastraOMStore,
     Mem0MemoryStore,
     OracleAgentMemoryStore,
-    RedisAMSMCPStore,
-    RedisAMSMemoryStore,
     SupermemoryStore,
     VertexMemoryBankStore,
     ZepMemoryStore,
 )
 
 STORES: dict[str, type[MemoryStore]] = {
-    "redis-ams": RedisAMSMemoryStore,
-    "redis-ams-mcp": RedisAMSMCPStore,
     "mem0": Mem0MemoryStore,
     "langmem": LangMemStore,
     "zep": ZepMemoryStore,
@@ -60,8 +56,6 @@ __all__ = [
     "MemoryStore",
     "OracleAgentMemoryStore",
     "QueryResult",
-    "RedisAMSMCPStore",
-    "RedisAMSMemoryStore",
     "STORES",
     "SupermemoryStore",
     "TokenUsage",
