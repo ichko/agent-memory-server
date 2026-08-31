@@ -1,6 +1,8 @@
 # Agent Memory Benchmark
 
-This repository is a shared **LongMemEval** harness. You ingest sessions into a memory product, retrieve for a test question, generate an answer, and (for v1) score that answer with an LLM judge.
+This directory is a shared **LongMemEval** v1 harness. You ingest sessions into a memory product, retrieve for a test question, generate an answer, and score that answer with an LLM judge.
+
+It is one of the two projects in this repository. The other is [`V0/`](../V0/), the open-source Agent Memory Server. See the [repository README](../README.md) for how they fit together.
 
 Each wrapper talks to a vendor API and uses that vendor's default extraction, so a run measures the product as shipped.
 
@@ -10,7 +12,7 @@ This harness follows the LongMemEval setup described in [Building and evaluating
 
 | Item | Value |
 |------|--------|
-| Dataset | LongMemEval **Small** v1 |
+| Dataset | LongMemEval **Small** |
 | Size | **500** questions |
 | Coverage | **six** task types |
 | Models | **gpt-4o** for answers and judging |
@@ -47,7 +49,7 @@ uv run memory-bench judge \
   --judge-model gpt-4o-mini
 ```
 
-`memory-bench` reads `.env` from the project root. The first `run` downloads the split into `~/.cache/memory-bench/`. Later runs reuse the cache.
+`memory-bench` reads `.env` from the working directory or a parent, so keep yours in `agent-memory-benchmark/`. The first `run` downloads the split into `~/.cache/memory-bench/`. Later runs reuse the cache.
 
 Put `-v` before the subcommand if you want debug logs (`memory-bench -v run ...`). Debug logs can include conversation text.
 

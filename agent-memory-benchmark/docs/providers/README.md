@@ -1,6 +1,6 @@
 # Provider recipes
 
-Each wrapper implements the same `MemoryStore` contract: ingest sessions, retrieve for a question, reset between examples. Install the matching `uv` extra, set keys from the recipe, then run a small smoke (oracle, one question) before a full Small v1 run:
+Each wrapper implements the same `MemoryStore` contract: ingest sessions, retrieve for a question, reset between examples. Install the matching `uv` extra, set keys from the recipe, then run a small smoke (oracle, one question) before a full Small run:
 
 ```bash
 uv run memory-bench providers

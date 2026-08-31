@@ -6,6 +6,14 @@ A memory layer that gives agents intelligent short-term memory and persistent co
 
 </div>
 
+Redis Agent Memory in Redis Iris is the supported product. This repository holds the open-source work behind it: the research foundation, and the benchmark we measure memory quality with.
+
+| Where | What it is |
+|-------|------------|
+| [redis.io/agent-memory](https://redis.io/agent-memory/) | **Redis Agent Memory in Redis Iris** — the managed service, and the path to use in production |
+| [`V0/`](./V0/) | The open-source research foundation: the original Agent Memory Server |
+| [`agent-memory-benchmark/`](./agent-memory-benchmark/) | The LongMemEval harness that supports this work |
+
 ## Redis Agent Memory in Redis Iris
 
 [Redis Agent Memory in Redis Iris](https://redis.io/agent-memory/) is Redis’s official managed path for teams that want agent memory as a service, not another subsystem to build and operate themselves. [Redis Iris](https://redis.io/iris/) is the real-time context engine for agents, designed to deliver fresh, relevant context at runtime, and Redis Agent Memory is the part of Iris that makes context compound across turns, sessions, channels, and agents.
@@ -44,7 +52,19 @@ It serves as the research foundation and architectural starting point for Redis 
 - **Documentation:** [`V0/docs/`](./V0/docs/index.md)
 - Build, test, and run everything from inside `V0/` (e.g. `cd V0 && make test`).
 
+## Agent Memory Benchmark
+
+[**`agent-memory-benchmark/`**](./agent-memory-benchmark/) is the LongMemEval harness behind our memory work. For each test question it ingests the prior chat sessions into a memory product, retrieves for the question, generates an answer, and scores that answer with an LLM judge.
+
+It wraps eight third-party memory products, each through that vendor's own API and default extraction, so a run measures the product as shipped. Use it to check a memory design against a public dataset instead of intuition.
+
+- **Start here:** [`agent-memory-benchmark/README.md`](./agent-memory-benchmark/README.md)
+- **Provider recipes:** [`agent-memory-benchmark/docs/providers/`](./agent-memory-benchmark/docs/providers/README.md)
+- Run everything from inside `agent-memory-benchmark/` (e.g. `cd agent-memory-benchmark && uv run memory-bench providers`).
+
+The harness is not a vendor ranking. A score depends on the provider, the models, and the dataset split, so compare runs only when those match.
+
 ## License
 
-This project is licensed under the **Apache License 2.0** (Redis, Inc.). See
+Both projects are licensed under the **Apache License 2.0** (Redis, Inc.). See
 [`LICENSE`](./LICENSE) at the repository root.
