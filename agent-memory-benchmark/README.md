@@ -85,8 +85,6 @@ Install extras from `pyproject.toml`. Pass `--provider` to `memory-bench run`.
 
 Index: [docs/providers/README.md](docs/providers/README.md).
 
-Mastra OM and Emergence Fast have no CLI id. Neither ships a public Python provider API to wrap. See [Mastra OM](docs/providers/mastra-om.md) and [Emergence](docs/providers/emergence.md).
-
 ## Dataset
 
 Public files: [`xiaowu0162/longmemeval-cleaned`](https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned). Upstream: [LongMemEval](https://github.com/xiaowu0162/LongMemEval).

@@ -11,10 +11,8 @@ from agent_memory_benchmark.memory.base import (
     normalize_role,
 )
 from agent_memory_benchmark.memory.bedrock_agentcore_store import BedrockAgentCoreStore
-from agent_memory_benchmark.memory.emergence_fast import EmergenceFastStore
 from agent_memory_benchmark.memory.graphiti_store import GraphitiStore
 from agent_memory_benchmark.memory.langmem_store import LangMemStore
-from agent_memory_benchmark.memory.mastra_om import MastraOMStore
 from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 from agent_memory_benchmark.memory.oracle_agent_memory_store import (
     OracleAgentMemoryStore,
@@ -48,10 +46,8 @@ def get_store_class(name: str) -> type[MemoryStore]:
 
 __all__ = [
     "BedrockAgentCoreStore",
-    "EmergenceFastStore",
     "GraphitiStore",
     "LangMemStore",
-    "MastraOMStore",
     "Mem0MemoryStore",
     "MemoryStore",
     "OracleAgentMemoryStore",

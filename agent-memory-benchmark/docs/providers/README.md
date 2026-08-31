@@ -18,8 +18,6 @@ These pages cite public vendor docs. Replace the placeholder project ids, region
 | [LangMem](langmem.md) | `langmem` | `langmem` |
 | [Zep](zep.md) | `zep` | `zep` |
 | [Graphiti](graphiti.md) | `graphiti` | `graphiti` |
-| [Mastra Observational Memory compatibility status](mastra-om.md) | — | Not registered |
-| [Emergence Simple Fast compatibility status](emergence.md) | — | Not registered |
 | [Supermemory](supermemory.md) | `supermemory` | `supermemory` |
 | [Google Vertex Memory Bank](google-vertex-memory-bank.md) | `google` | `vertex-memory-bank` |
 | [AWS Bedrock AgentCore](aws-bedrock-agentcore.md) | `aws` | `bedrock-agentcore` |

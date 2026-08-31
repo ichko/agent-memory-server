@@ -13,8 +13,6 @@ from agent_memory_benchmark.benchmark.runner import (
     redact_provider_params,
 )
 from agent_memory_benchmark.memory import STORES, get_store_class
-from agent_memory_benchmark.memory.emergence_fast import EmergenceFastStore
-from agent_memory_benchmark.memory.mastra_om import MastraOMStore
 from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 
 
@@ -98,20 +96,6 @@ def test_missing_provider_extra_has_actionable_install_hint(
     message = str(error.value)
     assert "mem0ai" in message
     assert "agent-memory-benchmark[mem0]" in message
-
-
-@pytest.mark.parametrize(
-    ("store_type", "expected"),
-    [
-        (MastraOMStore, "public TypeScript package"),
-        (EmergenceFastStore, "no provider API to wrap"),
-    ],
-)
-def test_compatibility_stubs_explain_why_they_cannot_run(
-    store_type: type, expected: str
-) -> None:
-    with pytest.raises(RuntimeError, match=expected):
-        store_type()
 
 
 def test_provider_param_coercion_and_last_value_wins() -> None:
