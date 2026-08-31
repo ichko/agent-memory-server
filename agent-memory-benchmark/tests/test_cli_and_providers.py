@@ -13,11 +13,9 @@ from agent_memory_benchmark.benchmark.runner import (
     redact_provider_params,
 )
 from agent_memory_benchmark.memory import STORES, get_store_class
-from agent_memory_benchmark.memory.providers import (
-    EmergenceFastStore,
-    MastraOMStore,
-    Mem0MemoryStore,
-)
+from agent_memory_benchmark.memory.emergence_fast import EmergenceFastStore
+from agent_memory_benchmark.memory.mastra_om import MastraOMStore
+from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 
 
 def test_cli_parser_exposes_current_commands_and_defaults() -> None:

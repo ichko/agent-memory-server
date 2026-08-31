@@ -111,8 +111,8 @@ Provider parameters whose names look like keys, tokens, secrets, or passwords ar
 
 ## Adapter extension
 
-1. Implement `MemoryStore`: `ingest`, `query`, `list_memories`, `reset`.
-2. Register the CLI id.
+1. Implement `MemoryStore` in `src/agent_memory_benchmark/memory/<id>_store.py`.
+2. Register the CLI id in `memory/__init__.py`.
 3. Add an optional extra in `pyproject.toml` if you need a vendor SDK.
 4. Add `docs/providers/<id>.md`.
 

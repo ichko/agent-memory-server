@@ -1,3 +1,102 @@
-from agent_memory_benchmark.memory.providers import OracleAgentMemoryStore
+from __future__ import annotations
 
-__all__ = ["OracleAgentMemoryStore"]
+import asyncio
+import os
+from typing import Any
+
+from agent_memory_benchmark.memory.base import (
+    QueryResult,
+    SessionLike,
+    TokenUsage,
+    normalize_role,
+)
+from agent_memory_benchmark.memory.common import AnsweringStore, missing_dependency
+
+
+class OracleAgentMemoryStore(AnsweringStore):
+    def __init__(
+        self,
+        *,
+        user_id: str = "benchmark",
+        model: str = "gpt-4o",
+        max_search_results: int = 10,
+        connection: Any = None,
+    ) -> None:
+        super().__init__(model=model)
+        try:
+            import oracledb
+            from oracleagentmemory.core import OracleAgentMemory
+        except ImportError as exc:
+            raise missing_dependency(
+                "oracleagentmemory", "oracle", "Oracle Agent Memory", exc
+            ) from exc
+        if connection is None:
+            password = os.environ.get("ORACLE_MEMORY_DB_PASSWORD")
+            if not password:
+                raise RuntimeError(
+                    "Oracle Agent Memory requires connection= or "
+                    "ORACLE_MEMORY_DB_PASSWORD"
+                )
+            connection = oracledb.create_pool(
+                user=os.environ.get("ORACLE_MEMORY_DB_USER"),
+                password=password,
+                dsn=os.environ.get("ORACLE_MEMORY_DB_CONNECT_STRING"),
+            )
+        self._connection = connection
+        self._memory = OracleAgentMemory(connection=connection)
+        self._user_id = user_id
+        self._max_search_results = max_search_results
+        self._thread: Any = None
+
+    async def close(self) -> None:
+        close = getattr(self._connection, "close", None)
+        if close:
+            await asyncio.to_thread(close)
+
+    async def ingest(self, sessions: list[SessionLike]) -> None:
+        from oracleagentmemory.apis.thread import Message
+
+        self._thread = await asyncio.to_thread(
+            self._memory.create_thread, user_id=self._user_id
+        )
+        for session in sessions:
+            messages = [
+                Message(
+                    role=normalize_role(item.speaker),
+                    content=item.text,
+                    timestamp=session.date.isoformat() if session.date else None,
+                )
+                for item in session.messages
+                if item.text.strip()
+            ]
+            await asyncio.to_thread(self._thread.add_messages, messages)
+
+    async def _search(self, query: str, limit: int) -> list[str]:
+        from oracleagentmemory.apis.searchscope import SearchScope
+
+        results = await asyncio.to_thread(
+            self._memory.search,
+            query,
+            scope=SearchScope(user_id=self._user_id),
+            max_results=limit,
+        )
+        return [str(getattr(item, "content", item)) for item in results]
+
+    async def query(
+        self, question: str, *, question_date: str | None = None
+    ) -> QueryResult:
+        return await self._answer(
+            "\n".join(await self._search(question, self._max_search_results)),
+            question,
+            question_date,
+        )
+
+    async def list_memories(self) -> list[str]:
+        return await self._search("memories", 100)
+
+    async def reset(self) -> None:
+        delete_user = getattr(self._memory, "delete_user", None)
+        if delete_user:
+            await asyncio.to_thread(delete_user, self._user_id)
+        self._thread = None
+        self._token_usage = TokenUsage()

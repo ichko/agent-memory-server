@@ -1,3 +1,77 @@
-from agent_memory_benchmark.memory.providers import Mem0MemoryStore
+from __future__ import annotations
 
-__all__ = ["Mem0MemoryStore"]
+import asyncio
+from typing import Any
+
+from agent_memory_benchmark.memory.base import (
+    QueryResult,
+    SessionLike,
+    TokenUsage,
+    normalize_role,
+)
+from agent_memory_benchmark.memory.common import AnsweringStore, missing_dependency
+
+
+class Mem0MemoryStore(AnsweringStore):
+    def __init__(
+        self,
+        config: dict[str, Any] | None = None,
+        *,
+        user_id: str = "benchmark",
+        model: str = "gpt-4o",
+        search_limit: int = 10,
+    ) -> None:
+        super().__init__(model=model)
+        try:
+            from mem0 import Memory
+        except ImportError as exc:
+            raise missing_dependency("mem0ai", "mem0", "Mem0", exc) from exc
+        self._memory = Memory.from_config(config or {})
+        self._user_id = user_id
+        self._search_limit = search_limit
+
+    async def ingest(self, sessions: list[SessionLike]) -> None:
+        for session in sessions:
+            messages = [
+                {"role": normalize_role(item.speaker), "content": item.text}
+                for item in session.messages
+                if item.text.strip()
+            ]
+            await asyncio.to_thread(
+                self._memory.add,
+                messages,
+                user_id=self._user_id,
+                metadata={"date": session.label},
+            )
+
+    @staticmethod
+    def _items(raw: Any) -> list[Any]:
+        if isinstance(raw, dict):
+            return raw.get("results", raw.get("memories", []))
+        return raw
+
+    async def query(
+        self, question: str, *, question_date: str | None = None
+    ) -> QueryResult:
+        raw = await asyncio.to_thread(
+            self._memory.search,
+            question,
+            user_id=self._user_id,
+            limit=self._search_limit,
+        )
+        context = "\n".join(
+            item.get("memory", str(item)) if isinstance(item, dict) else str(item)
+            for item in self._items(raw)
+        )
+        return await self._answer(context, question, question_date)
+
+    async def list_memories(self) -> list[str]:
+        raw = await asyncio.to_thread(self._memory.get_all, user_id=self._user_id)
+        return [
+            item.get("memory", str(item)) if isinstance(item, dict) else str(item)
+            for item in self._items(raw)
+        ]
+
+    async def reset(self) -> None:
+        await asyncio.to_thread(self._memory.delete_all, user_id=self._user_id)
+        self._token_usage = TokenUsage()

@@ -4,16 +4,17 @@ from typing import Any
 
 import pytest
 
+import agent_memory_benchmark.memory.common as common
 from agent_memory_benchmark.memory import (
     QueryResult,
     TokenUsage,
     normalize_role,
-    providers,
 )
+from agent_memory_benchmark.memory.common import AnsweringStore
 from agent_memory_benchmark.memory.llm import build_prompt
 
 
-class NeutralAnswerStore(providers._AnsweringStore):
+class NeutralAnswerStore(AnsweringStore):
     async def ingest(self, sessions: list[Any]) -> None:
         return None
 
@@ -80,7 +81,7 @@ async def test_answering_store_uses_shared_generation_and_accumulates_tokens(
             {"prompt_tokens": 4, "completion_tokens": 2},
         )
 
-    monkeypatch.setattr(providers, "generate_answer", fake_generate)
+    monkeypatch.setattr(common, "generate_answer", fake_generate)
     store = NeutralAnswerStore(model="neutral-model")
 
     await store.query("first", question_date="today")

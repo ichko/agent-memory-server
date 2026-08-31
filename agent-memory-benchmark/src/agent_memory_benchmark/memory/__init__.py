@@ -10,18 +10,18 @@ from agent_memory_benchmark.memory.base import (
     TokenUsage,
     normalize_role,
 )
-from agent_memory_benchmark.memory.providers import (
-    BedrockAgentCoreStore,
-    EmergenceFastStore,
-    GraphitiStore,
-    LangMemStore,
-    MastraOMStore,
-    Mem0MemoryStore,
+from agent_memory_benchmark.memory.bedrock_agentcore_store import BedrockAgentCoreStore
+from agent_memory_benchmark.memory.emergence_fast import EmergenceFastStore
+from agent_memory_benchmark.memory.graphiti_store import GraphitiStore
+from agent_memory_benchmark.memory.langmem_store import LangMemStore
+from agent_memory_benchmark.memory.mastra_om import MastraOMStore
+from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
+from agent_memory_benchmark.memory.oracle_agent_memory_store import (
     OracleAgentMemoryStore,
-    SupermemoryStore,
-    VertexMemoryBankStore,
-    ZepMemoryStore,
 )
+from agent_memory_benchmark.memory.supermemory_store import SupermemoryStore
+from agent_memory_benchmark.memory.vertex_memory_bank import VertexMemoryBankStore
+from agent_memory_benchmark.memory.zep_store import ZepMemoryStore
 
 STORES: dict[str, type[MemoryStore]] = {
     "mem0": Mem0MemoryStore,
