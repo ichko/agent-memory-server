@@ -2,17 +2,11 @@
 
 # Redis Agent Memory
 
-A memory layer that gives agents intelligent short-term memory and persistent context across conversations.
+[Redis Agent Memory](https://redis.io/agent-memory/) gives agents intelligent short-term memory and persistent context across conversations.
+
+This repository holds the [open-source research foundation](./V0/) and a [LongMemEval harness](./agent-memory-benchmark/) for that product.
 
 </div>
-
-Redis Agent Memory in Redis Iris is the supported product. This repository holds the open-source work behind it: the research foundation, and the benchmark we measure memory quality with.
-
-| Where | What it is |
-|-------|------------|
-| [redis.io/agent-memory](https://redis.io/agent-memory/) | **Redis Agent Memory in Redis Iris** — the managed service, and the path to use in production |
-| [`V0/`](./V0/) | The open-source research foundation: the original Agent Memory Server |
-| [`agent-memory-benchmark/`](./agent-memory-benchmark/) | The LongMemEval harness that supports this work |
 
 ## Redis Agent Memory in Redis Iris
 

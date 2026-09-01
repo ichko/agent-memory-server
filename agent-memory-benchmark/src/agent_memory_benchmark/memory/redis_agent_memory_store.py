@@ -200,12 +200,17 @@ class RedisAgentMemoryStore(AnsweringStore):
                 response.raise_for_status()
 
     async def _delete_memories(self) -> None:
+        previous: set[str] | None = None
         try:
-            while True:
+            for _ in range(10):
                 items = await self._search("", 100)
                 memory_ids = [item.get("id") for item in items if item.get("id")]
                 if not memory_ids:
                     return
+                current = set(memory_ids)
+                if previous is not None and current == previous:
+                    return
+                previous = current
                 response = await self._client.request(
                     "DELETE",
                     f"{self._store_path}/long-term-memory",

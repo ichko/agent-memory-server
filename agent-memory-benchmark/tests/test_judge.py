@@ -132,6 +132,18 @@ def test_judge_prompt_selects_abstention_and_temporal_rubrics() -> None:
     assert "off-by-one error" in temporal
 
 
+def test_judge_prompt_keeps_braces_in_answers() -> None:
+    prompt = build_judge_prompt(
+        question="What JSON?",
+        answer='{"ok": true}',
+        response="{}",
+        question_type="single-session-user",
+        abstain=False,
+    )
+    assert '{"ok": true}' in prompt
+    assert "{}" in prompt
+
+
 @pytest.mark.asyncio
 async def test_judge_rejects_unknown_benchmark_before_api_call(tmp_path: Path) -> None:
     run_dir = tmp_path / "other"

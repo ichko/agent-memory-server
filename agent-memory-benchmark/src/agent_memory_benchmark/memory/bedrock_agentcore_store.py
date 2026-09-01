@@ -89,5 +89,66 @@ class BedrockAgentCoreStore(AnsweringStore):
         return await self._retrieve("*", 50)
 
     async def reset(self) -> None:
+        await self._delete_remote()
         self._sessions.clear()
         self._token_usage = TokenUsage()
+
+    async def _delete_remote(self) -> None:
+        list_events = getattr(self._client, "list_events", None)
+        delete_event = getattr(self._client, "delete_event", None)
+        if list_events and delete_event:
+            for session_id in list(self._sessions):
+                payload = await asyncio.to_thread(
+                    list_events,
+                    memory_id=self._memory_id,
+                    actor_id=self._user_id,
+                    session_id=session_id,
+                )
+                for event in _items(payload, "events"):
+                    event_id = _field(event, "eventId", "event_id")
+                    if not event_id:
+                        continue
+                    await asyncio.to_thread(
+                        delete_event,
+                        memory_id=self._memory_id,
+                        actor_id=self._user_id,
+                        session_id=session_id,
+                        event_id=event_id,
+                    )
+        delete_record = getattr(self._client, "delete_memory_record", None)
+        if not delete_record:
+            return
+        records = await asyncio.to_thread(
+            self._client.retrieve_memories,
+            memory_id=self._memory_id,
+            namespace_path=self._namespace_path,
+            query="*",
+            top_k=50,
+        )
+        for record in _items(records, "memoryRecords"):
+            record_id = _field(record, "memoryRecordId", "id")
+            if record_id:
+                await asyncio.to_thread(
+                    delete_record,
+                    memory_id=self._memory_id,
+                    memory_record_id=record_id,
+                )
+
+
+def _items(payload: object, key: str) -> list[object]:
+    if payload is None:
+        return []
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        value = payload.get(key) or payload.get("items")
+        return value if isinstance(value, list) else []
+    return []
+
+
+def _field(item: object, *names: str) -> str | None:
+    for name in names:
+        value = item.get(name) if isinstance(item, dict) else getattr(item, name, None)
+        if value:
+            return str(value)
+    return None

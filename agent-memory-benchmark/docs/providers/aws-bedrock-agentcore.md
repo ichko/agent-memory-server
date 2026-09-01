@@ -64,9 +64,10 @@ uv run memory-bench judge --experiment smoke-agentcore --judge-model gpt-4o
 
 ## Cleanup
 
-Delete the AgentCore memory resource in the AWS console or with the AgentCore
-control-plane `DeleteMemory` API when you no longer need it. Check CloudWatch
-and billing for leftover extraction jobs.
+The wrapper deletes session events and retrieved memory records for the
+example `actorId` during `reset`. Delete the AgentCore memory resource in the
+AWS console or with the AgentCore control-plane `DeleteMemory` API when you no
+longer need it. Check CloudWatch and billing for leftover extraction jobs.
 
 ## Notes
 

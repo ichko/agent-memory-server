@@ -50,4 +50,8 @@ def build_judge_prompt(
     abstain: bool,
 ) -> str:
     template = ABSTENTION if abstain else BY_TYPE.get(question_type or "", DEFAULT)
-    return template.format(question=question, answer=answer, response=response)
+    return (
+        template.replace("{question}", question)
+        .replace("{answer}", answer)
+        .replace("{response}", response)
+    )

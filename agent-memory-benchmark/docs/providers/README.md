@@ -14,6 +14,7 @@ These pages cite public vendor docs. Replace the placeholder project ids, region
 
 | Provider | Extra | CLI id |
 |----------|-------|--------|
+| [Redis Agent Memory](redis-agent-memory.md) | — | `redis-agent-memory` |
 | [Mem0](mem0.md) | `mem0` | `mem0` |
 | [LangMem](langmem.md) | `langmem` | `langmem` |
 | [Zep](zep.md) | `zep` | `zep` |
@@ -22,4 +23,3 @@ These pages cite public vendor docs. Replace the placeholder project ids, region
 | [Google Vertex Memory Bank](google-vertex-memory-bank.md) | `google` | `vertex-memory-bank` |
 | [AWS Bedrock AgentCore](aws-bedrock-agentcore.md) | `aws` | `bedrock-agentcore` |
 | [Oracle Agent Memory](oracle-agent-memory.md) | `oracle` | `oracle-agent-memory` |
-| [Redis Agent Memory](redis-agent-memory.md) | — | `redis-agent-memory` |

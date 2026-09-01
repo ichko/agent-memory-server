@@ -10,6 +10,9 @@ import pytest
 import agent_memory_benchmark.memory.common as common
 from agent_memory_benchmark.datasets.models import ContextMessage, Session
 from agent_memory_benchmark.memory import QueryResult, TokenUsage
+from agent_memory_benchmark.memory.bedrock_agentcore_store import (
+    BedrockAgentCoreStore,
+)
 from agent_memory_benchmark.memory.graphiti_store import GraphitiStore
 from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 from agent_memory_benchmark.memory.oracle_agent_memory_store import (
@@ -122,6 +125,59 @@ async def test_vertex_uses_memories_subclient(
     await store.list_memories()
     await store.reset()
     assert calls == ["generate", "retrieve", "list", "list", "delete"]
+
+
+@pytest.mark.asyncio
+async def test_bedrock_reset_deletes_remote_events(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, dict[str, Any]]] = []
+
+    class Client:
+        def __init__(self, **_kwargs: Any) -> None:
+            return None
+
+        def list_events(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
+            calls.append(("list_events", kwargs))
+            return {"events": [{"eventId": "e1"}]}
+
+        def delete_event(self, **kwargs: Any) -> None:
+            calls.append(("delete_event", kwargs))
+
+        def retrieve_memories(self, **kwargs: Any) -> list[dict[str, str]]:
+            calls.append(("retrieve_memories", kwargs))
+            return [{"memoryRecordId": "m1"}]
+
+        def delete_memory_record(self, **kwargs: Any) -> None:
+            calls.append(("delete_memory_record", kwargs))
+
+    _install_module(
+        monkeypatch,
+        "bedrock_agentcore.memory",
+        SimpleNamespace(MemoryClient=Client),
+    )
+    store = BedrockAgentCoreStore(
+        memory_id="mem-1",
+        namespace_path="/ns/{user_id}/",
+        user_id="u1",
+    )
+    store._sessions = ["u1-0"]
+    await store.reset()
+    assert store._sessions == []
+    assert calls[0][0] == "list_events"
+    assert calls[1] == (
+        "delete_event",
+        {
+            "memory_id": "mem-1",
+            "actor_id": "u1",
+            "session_id": "u1-0",
+            "event_id": "e1",
+        },
+    )
+    assert calls[-1] == (
+        "delete_memory_record",
+        {"memory_id": "mem-1", "memory_record_id": "m1"},
+    )
 
 
 @pytest.mark.asyncio

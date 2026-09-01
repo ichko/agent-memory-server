@@ -2,8 +2,6 @@
 
 This directory is a shared **LongMemEval** v1 harness. You ingest sessions into a memory product, retrieve for a test question, generate an answer, and score that answer with an LLM judge.
 
-It is one of the two projects in this repository. The other is [`V0/`](../V0/), the open-source Agent Memory Server. See the [repository README](../README.md) for how they fit together.
-
 Each wrapper talks to a vendor API and uses that vendor's default extraction, so a run measures the product as shipped.
 
 ## The protocol
@@ -74,6 +72,7 @@ Install extras from `pyproject.toml`. Pass `--provider` to `memory-bench run`.
 
 | CLI id | Extra | Recipe |
 |--------|-------|--------|
+| `redis-agent-memory` | — | [Redis Agent Memory](docs/providers/redis-agent-memory.md) |
 | `mem0` | `mem0` | [Mem0](docs/providers/mem0.md) |
 | `langmem` | `langmem` | [LangMem](docs/providers/langmem.md) |
 | `zep` | `zep` | [Zep](docs/providers/zep.md) |
@@ -82,7 +81,6 @@ Install extras from `pyproject.toml`. Pass `--provider` to `memory-bench run`.
 | `vertex-memory-bank` | `google` | [Google Vertex Memory Bank](docs/providers/google-vertex-memory-bank.md) |
 | `bedrock-agentcore` | `aws` | [AWS Bedrock AgentCore](docs/providers/aws-bedrock-agentcore.md) |
 | `oracle-agent-memory` | `oracle` | [Oracle Agent Memory](docs/providers/oracle-agent-memory.md) |
-| `redis-agent-memory` | — | [Redis Agent Memory](docs/providers/redis-agent-memory.md) |
 
 Index: [docs/providers/README.md](docs/providers/README.md).
 

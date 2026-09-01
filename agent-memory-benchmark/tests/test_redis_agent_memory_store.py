@@ -109,6 +109,40 @@ async def test_redis_agent_memory_uses_public_rest_api(
     )
 
 
+@pytest.mark.asyncio
+async def test_redis_agent_memory_reset_stops_when_search_does_not_shrink() -> None:
+    searches = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal searches
+        if request.method == "GET" and request.url.path.endswith("/session-memory"):
+            return httpx.Response(200, json={"items": []})
+        if request.method == "POST" and request.url.path.endswith(
+            "/long-term-memory/search"
+        ):
+            searches += 1
+            return httpx.Response(200, json={"items": [{"id": "stuck"}]})
+        if request.method == "DELETE":
+            return httpx.Response(200, json={"deleted": []})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
+
+    store = RedisAgentMemoryStore(
+        base_url="https://memory.example",
+        store_id="store/one",
+        api_key="secret",
+        user_id="benchmark-run",
+    )
+    await store._client.aclose()
+    store._client = httpx.AsyncClient(
+        base_url="https://memory.example",
+        headers={"Authorization": "Bearer secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    await store.reset()
+    await store.close()
+    assert searches == 2
+
+
 def test_redis_agent_memory_requires_connection_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
