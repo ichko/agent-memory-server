@@ -84,8 +84,7 @@ class GraphitiStore(AnsweringStore):
         return await self._facts("*", 50)
 
     async def reset(self) -> None:
-        await self._graph.driver.graph_ops.clear_data(
-            self._graph.driver,
-            group_ids=[self._group_id],
-        )
+        from graphiti_core.utils.maintenance.graph_data_operations import clear_data
+
+        await clear_data(self._graph.driver, group_ids=[self._group_id])
         self._token_usage = TokenUsage()

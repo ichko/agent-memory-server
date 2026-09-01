@@ -11,6 +11,7 @@ from agent_memory_benchmark import cli
 from agent_memory_benchmark.benchmark.runner import (
     parse_provider_params,
     redact_provider_params,
+    store_kwargs,
 )
 from agent_memory_benchmark.memory import STORES, get_store_class
 from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
@@ -134,6 +135,13 @@ def test_sensitive_provider_params_are_redacted_from_metadata() -> None:
         "access_token": "<redacted>",
         "neo4j_password": "<redacted>",
         "region": "us-east-1",
+    }
+
+
+def test_store_kwargs_keep_isolated_user_id() -> None:
+    assert store_kwargs({"model": "gpt-4o", "user_id": "shared"}, "bench-1") == {
+        "model": "gpt-4o",
+        "user_id": "bench-1",
     }
 
 

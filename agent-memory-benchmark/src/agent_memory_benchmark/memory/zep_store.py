@@ -79,6 +79,11 @@ class ZepMemoryStore(AnsweringStore):
         return await self._facts("*", 50)
 
     async def reset(self) -> None:
-        await self._client.user.delete(self._user_id)
+        try:
+            await self._client.user.delete(self._user_id)
+        except Exception as exc:
+            status = getattr(exc, "status_code", None) or getattr(exc, "status", None)
+            if type(exc).__name__ != "NotFoundError" and status not in {404, "404"}:
+                raise
         self._threads.clear()
         self._token_usage = TokenUsage()

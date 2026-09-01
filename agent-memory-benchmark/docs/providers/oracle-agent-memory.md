@@ -44,6 +44,7 @@ uv run memory-bench run \
   --limit 1 \
   --run-name smoke-oracle \
   --provider-param model=gpt-4o \
+  --provider-param embedder_model=text-embedding-3-small \
   --provider-param max_search_results=20
 
 uv run memory-bench judge --experiment smoke-oracle --judge-model gpt-4o
@@ -60,5 +61,7 @@ Stop the database container if you used one.
 ## Notes
 
 - The SDK is synchronous. The wrapper runs it in worker threads.
+- The wrapper passes the answer `model` as the extraction LLM and
+  `embedder_model` (default `text-embedding-3-small`) as the embedder.
 - Oracle Free has a small tablespace cap. Full Small-split ingest may need a larger database.
 - This recipe comes from public Oracle docs and SDK environment variables. It was not run against a live database.

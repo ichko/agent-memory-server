@@ -206,6 +206,73 @@ async def test_v1_runner_resumes_and_skips_completed_questions(
 
 
 @pytest.mark.asyncio
+async def test_v1_runner_keeps_per_example_user_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FakeAdapter:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def load(self) -> list[DatasetExample]:
+            return _examples()[:1]
+
+    FakeStore.constructed.clear()
+    monkeypatch.setitem(runner.STORES, "fake", FakeStore)
+    monkeypatch.setattr(runner, "LongMemEvalAdapter", FakeAdapter)
+    await runner.run_longmemeval_v1(
+        provider="fake",
+        split="oracle",
+        results_root=tmp_path,
+        run_name="isolated",
+        provider_params={"user_id": "shared-user", "mode": "local"},
+        retries=1,
+    )
+    assert FakeStore.constructed == ["benchmark-isolated-0"]
+
+
+@pytest.mark.asyncio
+async def test_v1_runner_resets_before_each_ingest_attempt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class FlakyStore(FakeStore):
+        ingest_calls = 0
+
+        async def ingest(self, sessions: list[Session]) -> None:
+            type(self).ingest_calls += 1
+            if type(self).ingest_calls == 1:
+                raise RuntimeError("partial ingest")
+            await super().ingest(sessions)
+
+    class FakeAdapter:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def load(self) -> list[DatasetExample]:
+            return _examples()[:1]
+
+    async def no_sleep(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    FakeStore.constructed.clear()
+    FakeStore.resets = 0
+    FlakyStore.ingest_calls = 0
+    FlakyStore.resets = 0
+    monkeypatch.setitem(runner.STORES, "fake", FlakyStore)
+    monkeypatch.setattr(runner, "LongMemEvalAdapter", FakeAdapter)
+    monkeypatch.setattr(runner.asyncio, "sleep", no_sleep)
+    out_dir = await runner.run_longmemeval_v1(
+        provider="fake",
+        split="oracle",
+        results_root=tmp_path,
+        run_name="retry-ingest",
+        retries=2,
+    )
+    assert FlakyStore.ingest_calls == 2
+    assert FlakyStore.resets == 3
+    assert read_jsonl(out_dir / "answers.jsonl", AnswerRecord)
+
+
+@pytest.mark.asyncio
 async def test_v1_runner_rejects_resume_with_different_configuration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

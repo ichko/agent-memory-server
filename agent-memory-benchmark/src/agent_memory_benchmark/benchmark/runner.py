@@ -9,7 +9,6 @@ import re
 import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from functools import partial
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -63,6 +62,17 @@ def redact_provider_params(params: dict[str, Any]) -> dict[str, Any]:
         key: "<redacted>" if _SENSITIVE_PARAM.search(key) else value
         for key, value in params.items()
     }
+
+
+def store_kwargs(provider_params: dict[str, Any], user_id: str) -> dict[str, Any]:
+    """Build adapter kwargs with a per-example user id that cannot be overridden."""
+    params = dict(provider_params)
+    if "user_id" in params:
+        logger.warning(
+            "Ignoring --provider-param user_id; each example uses an isolated id"
+        )
+        params.pop("user_id")
+    return {**params, "user_id": user_id}
 
 
 def default_run_name(benchmark: str, provider: str) -> str:
@@ -248,13 +258,17 @@ async def run_longmemeval_v1(
             return
         async with semaphore:
             store_cls = STORES[provider]
-            kwargs = {"user_id": f"benchmark-{run_name}-{index}", **provider_params}
+            kwargs = store_kwargs(provider_params, f"benchmark-{run_name}-{index}")
             try:
                 async with store_cls(**kwargs) as store:
-                    await store.reset()
+
+                    async def ingest_clean() -> None:
+                        await store.reset()
+                        await _ingest(store, example.sessions)
+
                     ingest_started = time.perf_counter()
                     await _retry(
-                        partial(_ingest, store, example.sessions),
+                        ingest_clean,
                         attempts=retries,
                         label=f"ingest {key}",
                     )

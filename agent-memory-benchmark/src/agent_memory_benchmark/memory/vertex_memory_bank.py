@@ -46,9 +46,10 @@ class VertexMemoryBankStore(AnsweringStore):
         self._search_limit = search_limit
 
     async def ingest(self, sessions: list[SessionLike]) -> None:
+        memories = self._client.agent_engines.memories
         for session in sessions:
             await asyncio.to_thread(
-                self._client.agent_engines.generate_memories,
+                memories.generate,
                 name=self._engine,
                 direct_contents_source={
                     "events": [
@@ -70,13 +71,16 @@ class VertexMemoryBankStore(AnsweringStore):
         self, question: str, *, question_date: str | None = None
     ) -> QueryResult:
         results = await asyncio.to_thread(
-            self._client.agent_engines.retrieve_memories,
-            name=self._engine,
-            scope=self._scope,
-            similarity_search_params={
-                "search_query": question,
-                "top_k": self._search_limit,
-            },
+            lambda: list(
+                self._client.agent_engines.memories.retrieve(
+                    name=self._engine,
+                    scope=self._scope,
+                    similarity_search_params={
+                        "search_query": question,
+                        "top_k": self._search_limit,
+                    },
+                )
+            )
         )
         context = "\n".join(
             str(getattr(getattr(item, "memory", item), "fact", "")) for item in results
@@ -85,7 +89,7 @@ class VertexMemoryBankStore(AnsweringStore):
 
     async def list_memories(self) -> list[str]:
         memories = await asyncio.to_thread(
-            lambda: list(self._client.agent_engines.list_memories(name=self._engine))
+            lambda: list(self._client.agent_engines.memories.list(name=self._engine))
         )
         return [
             str(getattr(item, "fact", ""))
@@ -95,11 +99,11 @@ class VertexMemoryBankStore(AnsweringStore):
 
     async def reset(self) -> None:
         memories = await asyncio.to_thread(
-            lambda: list(self._client.agent_engines.list_memories(name=self._engine))
+            lambda: list(self._client.agent_engines.memories.list(name=self._engine))
         )
         for memory in memories:
             if getattr(memory, "scope", None) == self._scope:
                 await asyncio.to_thread(
-                    self._client.agent_engines.delete_memory, name=memory.name
+                    self._client.agent_engines.memories.delete, name=memory.name
                 )
         self._token_usage = TokenUsage()

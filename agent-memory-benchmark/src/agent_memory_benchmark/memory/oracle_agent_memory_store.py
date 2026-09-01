@@ -19,6 +19,7 @@ class OracleAgentMemoryStore(AnsweringStore):
         *,
         user_id: str = "benchmark",
         model: str = "gpt-4o",
+        embedder_model: str = "text-embedding-3-small",
         max_search_results: int = 10,
         connection: Any = None,
     ) -> None:
@@ -26,6 +27,8 @@ class OracleAgentMemoryStore(AnsweringStore):
         try:
             import oracledb
             from oracleagentmemory.core import OracleAgentMemory
+            from oracleagentmemory.core.embedders.embedder import Embedder
+            from oracleagentmemory.core.llms.llm import Llm
         except ImportError as exc:
             raise missing_dependency(
                 "oracleagentmemory", "oracle", "Oracle Agent Memory", exc
@@ -43,7 +46,11 @@ class OracleAgentMemoryStore(AnsweringStore):
                 dsn=os.environ.get("ORACLE_MEMORY_DB_CONNECT_STRING"),
             )
         self._connection = connection
-        self._memory = OracleAgentMemory(connection=connection)
+        self._memory = OracleAgentMemory(
+            connection=connection,
+            llm=Llm(model=model),
+            embedder=Embedder(model=embedder_model),
+        )
         self._user_id = user_id
         self._max_search_results = max_search_results
         self._thread: Any = None

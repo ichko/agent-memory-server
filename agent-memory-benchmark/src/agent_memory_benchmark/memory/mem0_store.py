@@ -56,8 +56,8 @@ class Mem0MemoryStore(AnsweringStore):
         raw = await asyncio.to_thread(
             self._memory.search,
             question,
-            user_id=self._user_id,
-            limit=self._search_limit,
+            filters={"user_id": self._user_id},
+            top_k=self._search_limit,
         )
         context = "\n".join(
             item.get("memory", str(item)) if isinstance(item, dict) else str(item)
@@ -66,7 +66,9 @@ class Mem0MemoryStore(AnsweringStore):
         return await self._answer(context, question, question_date)
 
     async def list_memories(self) -> list[str]:
-        raw = await asyncio.to_thread(self._memory.get_all, user_id=self._user_id)
+        raw = await asyncio.to_thread(
+            self._memory.get_all, filters={"user_id": self._user_id}
+        )
         return [
             item.get("memory", str(item)) if isinstance(item, dict) else str(item)
             for item in self._items(raw)
