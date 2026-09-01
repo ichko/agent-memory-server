@@ -22,3 +22,4 @@ These pages cite public vendor docs. Replace the placeholder project ids, region
 | [Google Vertex Memory Bank](google-vertex-memory-bank.md) | `google` | `vertex-memory-bank` |
 | [AWS Bedrock AgentCore](aws-bedrock-agentcore.md) | `aws` | `bedrock-agentcore` |
 | [Oracle Agent Memory](oracle-agent-memory.md) | `oracle` | `oracle-agent-memory` |
+| [Redis Agent Memory](redis-agent-memory.md) | — | `redis-agent-memory` |

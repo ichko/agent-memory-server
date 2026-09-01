@@ -82,6 +82,7 @@ Install extras from `pyproject.toml`. Pass `--provider` to `memory-bench run`.
 | `vertex-memory-bank` | `google` | [Google Vertex Memory Bank](docs/providers/google-vertex-memory-bank.md) |
 | `bedrock-agentcore` | `aws` | [AWS Bedrock AgentCore](docs/providers/aws-bedrock-agentcore.md) |
 | `oracle-agent-memory` | `oracle` | [Oracle Agent Memory](docs/providers/oracle-agent-memory.md) |
+| `redis-agent-memory` | — | [Redis Agent Memory](docs/providers/redis-agent-memory.md) |
 
 Index: [docs/providers/README.md](docs/providers/README.md).
 

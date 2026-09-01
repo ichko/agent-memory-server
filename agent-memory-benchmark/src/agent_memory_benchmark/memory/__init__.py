@@ -17,6 +17,9 @@ from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 from agent_memory_benchmark.memory.oracle_agent_memory_store import (
     OracleAgentMemoryStore,
 )
+from agent_memory_benchmark.memory.redis_agent_memory_store import (
+    RedisAgentMemoryStore,
+)
 from agent_memory_benchmark.memory.supermemory_store import SupermemoryStore
 from agent_memory_benchmark.memory.vertex_memory_bank import VertexMemoryBankStore
 from agent_memory_benchmark.memory.zep_store import ZepMemoryStore
@@ -30,6 +33,7 @@ STORES: dict[str, type[MemoryStore]] = {
     "vertex-memory-bank": VertexMemoryBankStore,
     "bedrock-agentcore": BedrockAgentCoreStore,
     "oracle-agent-memory": OracleAgentMemoryStore,
+    "redis-agent-memory": RedisAgentMemoryStore,
 }
 
 
@@ -52,6 +56,7 @@ __all__ = [
     "MemoryStore",
     "OracleAgentMemoryStore",
     "QueryResult",
+    "RedisAgentMemoryStore",
     "STORES",
     "SupermemoryStore",
     "TokenUsage",

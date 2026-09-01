@@ -56,7 +56,7 @@ It serves as the research foundation and architectural starting point for Redis 
 
 [**`agent-memory-benchmark/`**](./agent-memory-benchmark/) is the LongMemEval harness behind our memory work. For each test question it ingests the prior chat sessions into a memory product, retrieves for the question, generates an answer, and scores that answer with an LLM judge.
 
-It wraps eight third-party memory products, each through that vendor's own API and default extraction, so a run measures the product as shipped. Use it to check a memory design against a public dataset instead of intuition.
+It wraps Redis Agent Memory and eight third-party memory products through their public APIs and default extraction. Use it to check a memory design against a public dataset instead of intuition.
 
 - **Start here:** [`agent-memory-benchmark/README.md`](./agent-memory-benchmark/README.md)
 - **Provider recipes:** [`agent-memory-benchmark/docs/providers/`](./agent-memory-benchmark/docs/providers/README.md)
