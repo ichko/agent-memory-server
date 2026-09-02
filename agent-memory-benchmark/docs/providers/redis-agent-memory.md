@@ -6,14 +6,17 @@ uses the harness answer model.
 
 Docs:
 
+- [Redis Agent Memory product overview](https://redis.io/agent-memory/)
 - [Redis Agent Memory](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/)
+- [Create an Agent Memory service](https://redis.io/docs/latest/operate/rc/context-engine/agent-memory/create-service/)
 - [REST API quickstart](https://redis.io/docs/latest/develop/ai/context-engine/agent-memory/rest-api-quickstart)
 
 CLI id: `redis-agent-memory`. No optional extra is required.
 
 ## Configure
 
-Create an Agent Memory service. Copy its endpoint, Store ID, and API key:
+[Create an Agent Memory service](https://redis.io/docs/latest/operate/rc/context-engine/agent-memory/create-service/).
+Copy its endpoint, Store ID, and API key:
 
 ```bash
 REDIS_AGENT_MEMORY_URL=https://replace-me

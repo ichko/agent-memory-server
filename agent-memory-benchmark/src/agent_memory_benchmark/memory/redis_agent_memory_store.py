@@ -77,7 +77,9 @@ class RedisAgentMemoryStore(AnsweringStore):
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def _search(self, text: str, limit: int | None = None) -> list[dict[str, Any]]:
+    async def _search(
+        self, text: str, limit: int | None = None
+    ) -> list[dict[str, Any]]:
         collected: list[dict[str, Any]] = []
         page_token: str | None = None
         remaining = limit
