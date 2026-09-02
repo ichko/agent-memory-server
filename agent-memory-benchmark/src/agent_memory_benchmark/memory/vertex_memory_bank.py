@@ -48,21 +48,30 @@ class VertexMemoryBankStore(AnsweringStore):
     async def ingest(self, sessions: list[SessionLike]) -> None:
         memories = self._client.agent_engines.memories
         for session in sessions:
+            events = []
+            if session.label:
+                events.append(
+                    {
+                        "content": {
+                            "role": "user",
+                            "parts": [{"text": f"Conversation date: {session.label}"}],
+                        }
+                    }
+                )
+            events.extend(
+                {
+                    "content": {
+                        "role": normalize_role(item.speaker),
+                        "parts": [{"text": item.text}],
+                    }
+                }
+                for item in session.messages
+                if item.text.strip()
+            )
             await asyncio.to_thread(
                 memories.generate,
                 name=self._engine,
-                direct_contents_source={
-                    "events": [
-                        {
-                            "content": {
-                                "role": normalize_role(item.speaker),
-                                "parts": [{"text": item.text}],
-                            }
-                        }
-                        for item in session.messages
-                        if item.text.strip()
-                    ]
-                },
+                direct_contents_source={"events": events},
                 scope=self._scope,
                 config={"wait_for_completion": True},
             )

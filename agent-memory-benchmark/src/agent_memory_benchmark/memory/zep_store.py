@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from datetime import timedelta
 
 from agent_memory_benchmark.memory.base import (
     QueryResult,
@@ -9,7 +10,11 @@ from agent_memory_benchmark.memory.base import (
     TokenUsage,
     normalize_role,
 )
-from agent_memory_benchmark.memory.common import AnsweringStore, missing_dependency
+from agent_memory_benchmark.memory.common import (
+    AnsweringStore,
+    missing_dependency,
+    session_created_at,
+)
 
 
 class ZepMemoryStore(AnsweringStore):
@@ -46,15 +51,31 @@ class ZepMemoryStore(AnsweringStore):
             thread_id = f"{self._user_id}-{index}"
             self._threads.append(thread_id)
             await self._client.thread.create(thread_id=thread_id, user_id=self._user_id)
-            messages = [
-                Message(
-                    role=normalize_role(item.speaker),
-                    name=normalize_role(item.speaker),
-                    content=item.text,
+            created = session_created_at(session)
+            messages = []
+            offset = 0
+            if session.label:
+                messages.append(
+                    Message(
+                        role="user",
+                        name="user",
+                        content=f"Conversation date: {session.label}",
+                        created_at=(created + timedelta(seconds=offset)).isoformat(),
+                    )
                 )
-                for item in session.messages
-                if item.text.strip()
-            ]
+                offset += 1
+            for item in session.messages:
+                if not item.text.strip():
+                    continue
+                messages.append(
+                    Message(
+                        role=normalize_role(item.speaker),
+                        name=normalize_role(item.speaker),
+                        content=item.text,
+                        created_at=(created + timedelta(seconds=offset)).isoformat(),
+                    )
+                )
+                offset += 1
             for start in range(0, len(messages), 30):
                 await self._client.thread.add_messages(
                     thread_id, messages=messages[start : start + 30]
@@ -76,7 +97,31 @@ class ZepMemoryStore(AnsweringStore):
         )
 
     async def list_memories(self) -> list[str]:
-        return await self._facts("*", 50)
+        facts: list[str] = []
+        cursor: str | None = None
+        get_edges = getattr(self._client.graph.edge, "get_by_user_id", None)
+        if not get_edges:
+            return await self._facts("*", 50)
+        for _ in range(50):
+            kwargs: dict[str, object] = {"user_id": self._user_id, "limit": 100}
+            if cursor:
+                kwargs["uuid_cursor"] = cursor
+            result = await get_edges(**kwargs)
+            edges = (
+                result
+                if isinstance(result, list)
+                else getattr(result, "edges", None)
+                or getattr(result, "items", None)
+                or []
+            )
+            if not edges:
+                break
+            facts.extend(getattr(edge, "fact", str(edge)) for edge in edges)
+            last = edges[-1]
+            cursor = getattr(last, "uuid", None) or getattr(last, "uuid_", None)
+            if not cursor or len(edges) < 100:
+                break
+        return facts
 
     async def reset(self) -> None:
         try:

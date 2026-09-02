@@ -68,14 +68,9 @@ class SupermemoryStore(AnsweringStore):
         )
         deadline = time.monotonic() + effective_timeout
         while time.monotonic() < deadline:
-            response = await self._client.documents.list(
-                container_tags=[self._user_id],
-                limit=max(50, len(self._document_ids)),
-            )
-            documents = getattr(response, "memories", None) or []
             terminal: set[str] = set()
             failed: set[str] = set()
-            for document in documents:
+            for document in await self._list_documents():
                 document_id = getattr(document, "id", None)
                 status = str(getattr(document, "status", "")).lower()
                 if document_id and status in {"done", "failed", "error"}:
@@ -93,6 +88,32 @@ class SupermemoryStore(AnsweringStore):
         raise TimeoutError(
             f"Supermemory did not process all documents within {effective_timeout}s"
         )
+
+    async def _list_documents(self) -> list[object]:
+        collected: list[object] = []
+        page = 1
+        while page <= 50:
+            response = await self._client.documents.list(
+                container_tags=[self._user_id],
+                limit=200,
+                page=page,
+            )
+            documents = getattr(response, "memories", None) or []
+            collected.extend(documents)
+            pagination = getattr(response, "pagination", None)
+            total_pages = getattr(pagination, "total_pages", None) or getattr(
+                pagination, "totalPages", None
+            )
+            if isinstance(pagination, dict):
+                total_pages = pagination.get("totalPages") or pagination.get(
+                    "total_pages"
+                )
+            if total_pages is not None and page >= int(total_pages):
+                break
+            if len(documents) < 200:
+                break
+            page += 1
+        return collected
 
     async def query(
         self, question: str, *, question_date: str | None = None

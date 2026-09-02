@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from typing import Any
 
@@ -18,6 +19,7 @@ from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 from agent_memory_benchmark.memory.oracle_agent_memory_store import (
     OracleAgentMemoryStore,
 )
+from agent_memory_benchmark.memory.supermemory_store import SupermemoryStore
 from agent_memory_benchmark.memory.vertex_memory_bank import VertexMemoryBankStore
 from agent_memory_benchmark.memory.zep_store import ZepMemoryStore
 
@@ -87,10 +89,12 @@ async def test_vertex_uses_memories_subclient(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[str] = []
+    generate_kwargs: list[dict[str, Any]] = []
 
     class Memories:
-        def generate(self, **_kwargs: Any) -> None:
+        def generate(self, **kwargs: Any) -> None:
             calls.append("generate")
+            generate_kwargs.append(kwargs)
 
         def retrieve(self, **_kwargs: Any) -> list[Any]:
             calls.append("retrieve")
@@ -125,6 +129,8 @@ async def test_vertex_uses_memories_subclient(
     await store.list_memories()
     await store.reset()
     assert calls == ["generate", "retrieve", "list", "list", "delete"]
+    events = generate_kwargs[0]["direct_contents_source"]["events"]
+    assert events[0]["content"]["parts"][0]["text"] == "Conversation date: now"
 
 
 @pytest.mark.asyncio
@@ -206,6 +212,102 @@ async def test_zep_reset_ignores_missing_user(
     store = ZepMemoryStore(api_key="k", user_id="missing-user")
     await store.reset()
     assert store._threads == []
+
+
+@pytest.mark.asyncio
+async def test_zep_ingest_stamps_created_at_and_lists_all_edges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[dict[str, Any]] = []
+    list_calls: list[dict[str, Any]] = []
+
+    class Message:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.append(kwargs)
+
+    class Users:
+        async def add(self, **_kwargs: Any) -> None:
+            return None
+
+        async def delete(self, _user_id: str) -> None:
+            return None
+
+    class Threads:
+        async def create(self, **_kwargs: Any) -> None:
+            return None
+
+        async def add_messages(self, _thread_id: str, messages: list[Any]) -> None:
+            return None
+
+    class Edges:
+        async def get_by_user_id(self, **kwargs: Any) -> list[Any]:
+            list_calls.append(kwargs)
+            if kwargs.get("uuid_cursor"):
+                return [SimpleNamespace(fact="later", uuid="e2")]
+            return [
+                SimpleNamespace(fact=f"edge-{index}", uuid="e1") for index in range(100)
+            ]
+
+    class Client:
+        def __init__(self) -> None:
+            self.user = Users()
+            self.thread = Threads()
+            self.graph = SimpleNamespace(edge=Edges())
+
+        async def close(self) -> None:
+            return None
+
+    _install_module(monkeypatch, "zep_cloud.types", SimpleNamespace(Message=Message))
+    _install_module(
+        monkeypatch,
+        "zep_cloud.client",
+        SimpleNamespace(AsyncZep=lambda api_key: Client()),
+    )
+    store = ZepMemoryStore(api_key="k", user_id="u1")
+    await store.ingest(
+        [
+            Session(
+                label="2026/01/02",
+                date=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                messages=[ContextMessage("user", "hello")],
+            )
+        ]
+    )
+    memories = await store.list_memories()
+    assert captured[0]["content"] == "Conversation date: 2026/01/02"
+    assert captured[0]["created_at"].startswith("2026-01-02")
+    assert captured[1]["content"] == "hello"
+    assert memories[-1] == "later"
+    assert list_calls[1]["uuid_cursor"] == "e1"
+
+
+@pytest.mark.asyncio
+async def test_supermemory_wait_pages_through_document_list() -> None:
+    pages: list[int] = []
+
+    class Documents:
+        async def list(self, **kwargs: Any) -> Any:
+            pages.append(int(kwargs["page"]))
+            if kwargs["page"] == 1:
+                return SimpleNamespace(
+                    memories=[SimpleNamespace(id="a", status="done")] * 200,
+                    pagination=SimpleNamespace(totalPages=2),
+                )
+            return SimpleNamespace(
+                memories=[SimpleNamespace(id="b", status="done")],
+                pagination=SimpleNamespace(totalPages=2),
+            )
+
+    store = SupermemoryStore.__new__(SupermemoryStore)
+    store._client = SimpleNamespace(documents=Documents())
+    store._user_id = "u1"
+    store._document_ids = {"a", "b"}
+    store._documents = ["one", "two"]
+    store._wait_timeout = 1
+    store._wait_poll_interval = 0.01
+    memories = await store.wait_for_extraction(timeout=1, poll_interval=0.01)
+    assert memories == ["one", "two"]
+    assert pages == [1, 2]
 
 
 @pytest.mark.asyncio

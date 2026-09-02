@@ -37,11 +37,16 @@ class LangMemStore(AnsweringStore):
 
     async def ingest(self, sessions: list[SessionLike]) -> None:
         for session in sessions:
-            messages = [
+            messages = []
+            if session.label:
+                messages.append(
+                    {"role": "user", "content": f"Conversation date: {session.label}"}
+                )
+            messages.extend(
                 {"role": normalize_role(item.speaker), "content": item.text}
                 for item in session.messages
                 if item.text.strip()
-            ]
+            )
             self._existing = await self._manager.ainvoke(
                 {"messages": messages, "existing": self._existing}
             )

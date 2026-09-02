@@ -143,6 +143,41 @@ async def test_redis_agent_memory_reset_stops_when_search_does_not_shrink() -> N
     assert searches == 2
 
 
+@pytest.mark.asyncio
+async def test_redis_agent_memory_lists_all_search_pages() -> None:
+    tokens: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        tokens.append(body.get("pageToken"))
+        if body.get("pageToken") is None:
+            return httpx.Response(
+                200,
+                json={
+                    "items": [{"id": "m1", "text": "one"}],
+                    "nextPageToken": "page-2",
+                },
+            )
+        return httpx.Response(200, json={"items": [{"id": "m2", "text": "two"}]})
+
+    store = RedisAgentMemoryStore(
+        base_url="https://memory.example",
+        store_id="store/one",
+        api_key="secret",
+        user_id="benchmark-run",
+    )
+    await store._client.aclose()
+    store._client = httpx.AsyncClient(
+        base_url="https://memory.example",
+        headers={"Authorization": "Bearer secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    memories = await store.list_memories()
+    await store.close()
+    assert memories == ["one", "two"]
+    assert tokens == [None, "page-2"]
+
+
 def test_redis_agent_memory_requires_connection_values(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

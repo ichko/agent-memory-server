@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from agent_memory_benchmark.memory.base import (
@@ -19,6 +20,13 @@ def missing_dependency(
         f"{provider} requires the optional '{distribution}' dependency. "
         f"Install it with: pip install 'agent-memory-benchmark[{extra}]'"
     ).with_traceback(exc.__traceback__)
+
+
+def session_created_at(session: SessionLike) -> datetime:
+    created = getattr(session, "date", None) or datetime.now(timezone.utc)
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return created
 
 
 def session_text(session: SessionLike) -> str:

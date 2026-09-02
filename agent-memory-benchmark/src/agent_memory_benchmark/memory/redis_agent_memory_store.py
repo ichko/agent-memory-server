@@ -77,20 +77,36 @@ class RedisAgentMemoryStore(AnsweringStore):
     async def close(self) -> None:
         await self._client.aclose()
 
-    async def _search(self, text: str, limit: int) -> list[dict[str, Any]]:
-        body: dict[str, Any] = {
-            "filter": {"ownerId": {"eq": self._owner_id}},
-            "limit": min(limit, 100),
-        }
-        if text.strip():
-            body["text"] = text
-        response = await self._client.post(
-            f"{self._store_path}/long-term-memory/search",
-            json=body,
-        )
-        response.raise_for_status()
-        payload = response.json()
-        return payload.get("items") or payload.get("memories") or []
+    async def _search(self, text: str, limit: int | None = None) -> list[dict[str, Any]]:
+        collected: list[dict[str, Any]] = []
+        page_token: str | None = None
+        remaining = limit
+        for _ in range(50):
+            page_size = 100 if remaining is None else min(remaining, 100)
+            body: dict[str, Any] = {
+                "filter": {"ownerId": {"eq": self._owner_id}},
+                "limit": page_size,
+            }
+            if text.strip():
+                body["text"] = text
+            if page_token:
+                body["pageToken"] = page_token
+            response = await self._client.post(
+                f"{self._store_path}/long-term-memory/search",
+                json=body,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            batch = payload.get("items") or payload.get("memories") or []
+            collected.extend(batch)
+            page_token = payload.get("nextPageToken") or payload.get("next_page_token")
+            if remaining is not None:
+                remaining -= len(batch)
+                if remaining <= 0:
+                    break
+            if not page_token or not batch:
+                break
+        return collected[:limit] if limit is not None else collected
 
     @staticmethod
     def _texts(items: list[dict[str, Any]]) -> list[str]:
@@ -172,7 +188,7 @@ class RedisAgentMemoryStore(AnsweringStore):
         return result
 
     async def list_memories(self) -> list[str]:
-        return self._texts(await self._search("", 100))
+        return self._texts(await self._search(""))
 
     async def reset(self) -> None:
         await self._delete_sessions()
@@ -203,7 +219,7 @@ class RedisAgentMemoryStore(AnsweringStore):
         previous: set[str] | None = None
         try:
             for _ in range(10):
-                items = await self._search("", 100)
+                items = await self._search("")
                 memory_ids = [item.get("id") for item in items if item.get("id")]
                 if not memory_ids:
                     return
