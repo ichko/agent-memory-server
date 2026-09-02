@@ -103,3 +103,34 @@ def test_longmemeval_v1_download_follows_huggingface_redirects(
     assert captured["follow_redirects"] is True
     assert "longmemeval_oracle.json" in str(captured["url"])
     assert len(rows) == 1
+
+
+def test_longmemeval_v1_redownloads_truncated_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cache_file = tmp_path / "longmemeval-v1" / "longmemeval_oracle.json"
+    cache_file.parent.mkdir()
+    cache_file.write_text('[{"question"', encoding="utf-8")
+    downloads = 0
+
+    class FakeResponse:
+        content = (
+            b'[{"question_id":"q","question":"Q","answer":"A",'
+            b'"haystack_sessions":[],"haystack_dates":[]}]'
+        )
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(*_args: object, **_kwargs: object) -> FakeResponse:
+        nonlocal downloads
+        downloads += 1
+        return FakeResponse()
+
+    monkeypatch.setattr(
+        "agent_memory_benchmark.datasets.longmemeval.httpx.get", fake_get
+    )
+    rows = LongMemEvalAdapter(split="oracle", cache_dir=tmp_path).load_raw()
+    assert downloads == 1
+    assert len(rows) == 1
+    assert json.loads(cache_file.read_text())[0]["question_id"] == "q"

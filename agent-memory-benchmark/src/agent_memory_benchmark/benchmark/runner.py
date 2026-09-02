@@ -292,13 +292,13 @@ async def run_longmemeval_v1(
                         },
                         retries=retries,
                     )
+                    await store.reset()
                     async with write_lock:
                         if not metadata.provider_metadata:
                             metadata.provider_metadata = store.get_store_metadata()
                             metadata.save(out_dir / "metadata.json")
                         append_jsonl(answers_path, record)
                         completed.add(key)
-                    await store.reset()
             except Exception as exc:
                 logger.exception("Failed LongMemEval question %s", key)
                 async with write_lock:

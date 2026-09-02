@@ -111,17 +111,23 @@ def test_role_normalization(speaker: str, role: str) -> None:
 
 
 @pytest.mark.asyncio
-async def test_wait_for_extraction_returns_when_memories_appear() -> None:
-    class SlowStore(NeutralAnswerStore):
+async def test_wait_for_extraction_waits_until_count_is_stable() -> None:
+    class GrowingStore(NeutralAnswerStore):
         def __init__(self) -> None:
             super().__init__(model="neutral-model")
             self.calls = 0
 
         async def list_memories(self) -> list[str]:
             self.calls += 1
-            return ["fact"] if self.calls >= 2 else []
+            if self.calls == 1:
+                return []
+            if self.calls < 4:
+                return ["first"]
+            return ["first", "second"]
 
-    store = SlowStore()
-    memories = await store.wait_for_extraction(timeout=2, poll_interval=0.01)
-    assert memories == ["fact"]
-    assert store.calls >= 2
+    store = GrowingStore()
+    memories = await store.wait_for_extraction(
+        timeout=2, poll_interval=0.01, stable_seconds=0.05
+    )
+    assert memories == ["first", "second"]
+    assert store.calls >= 4

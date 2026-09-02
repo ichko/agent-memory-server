@@ -110,15 +110,28 @@ class MemoryStore(ABC):
         pass
 
     async def wait_for_extraction(
-        self, *, timeout: float = 120, poll_interval: float = 2
+        self,
+        *,
+        timeout: float = 120,
+        poll_interval: float = 2,
+        stable_seconds: float = 4,
     ) -> list[str]:
-        deadline = asyncio.get_running_loop().time() + timeout
-        while asyncio.get_running_loop().time() < deadline:
-            memories = await self.list_memories()
-            if memories:
-                return memories
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        last_count: int | None = None
+        last_change = loop.time()
+        latest: list[str] = []
+        while loop.time() < deadline:
+            latest = await self.list_memories()
+            count = len(latest)
+            now = loop.time()
+            if count != last_count:
+                last_count = count
+                last_change = now
+            elif count and now - last_change >= stable_seconds:
+                return latest
             await asyncio.sleep(poll_interval)
-        return await self.list_memories()
+        return latest
 
     @abstractmethod
     async def reset(self) -> None:

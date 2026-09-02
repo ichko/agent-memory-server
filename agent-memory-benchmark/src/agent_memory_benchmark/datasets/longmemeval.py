@@ -53,7 +53,8 @@ class LongMemEvalAdapter(DatasetAdapter):
             return self._rows
         filename = f"{SPLITS[self.split]}.json"
         path = self.cache_dir / "longmemeval-v1" / filename
-        if not path.exists():
+        payload = _read_rows(path) if path.exists() else None
+        if payload is None:
             path.parent.mkdir(parents=True, exist_ok=True)
             response = httpx.get(
                 f"{BASE_URL}/{filename}",
@@ -61,11 +62,13 @@ class LongMemEvalAdapter(DatasetAdapter):
                 follow_redirects=True,
             )
             response.raise_for_status()
-            path.write_bytes(response.content)
-        raw = _SUPPLEMENTARY_UTF8_RE.sub(b"", path.read_bytes())
-        payload = json.loads(raw)
-        if not isinstance(payload, list):
-            raise ValueError(f"Expected a JSON list in {path}")
+            raw = _SUPPLEMENTARY_UTF8_RE.sub(b"", response.content)
+            payload = json.loads(raw)
+            if not isinstance(payload, list):
+                raise ValueError(f"Expected a JSON list from {filename}")
+            temporary = path.with_suffix(path.suffix + ".tmp")
+            temporary.write_bytes(response.content)
+            temporary.replace(path)
         self._rows = payload
         return payload
 
@@ -131,3 +134,11 @@ class LongMemEvalAdapter(DatasetAdapter):
             ).replace(tzinfo=timezone.utc)
         except ValueError:
             return None
+
+
+def _read_rows(path: Path) -> list[dict] | None:
+    try:
+        payload = json.loads(_SUPPLEMENTARY_UTF8_RE.sub(b"", path.read_bytes()))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    return payload if isinstance(payload, list) else None

@@ -273,6 +273,48 @@ async def test_v1_runner_resets_before_each_ingest_attempt(
 
 
 @pytest.mark.asyncio
+async def test_v1_runner_does_not_mark_complete_when_cleanup_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    class DirtyResetStore(FakeStore):
+        fail_cleanup = True
+
+        async def reset(self) -> None:
+            type(self).resets += 1
+            if type(self).fail_cleanup and type(self).resets >= 2:
+                type(self).fail_cleanup = False
+                raise RuntimeError("cleanup failed")
+            self.usage = TokenUsage()
+
+    class FakeAdapter:
+        def __init__(self, *_args: object, **_kwargs: object) -> None:
+            pass
+
+        def load(self) -> list[DatasetExample]:
+            return _examples()[:1]
+
+    FakeStore.constructed.clear()
+    FakeStore.queried.clear()
+    DirtyResetStore.resets = 0
+    DirtyResetStore.fail_cleanup = True
+    monkeypatch.setitem(runner.STORES, "fake", DirtyResetStore)
+    monkeypatch.setattr(runner, "LongMemEvalAdapter", FakeAdapter)
+    kwargs = {
+        "provider": "fake",
+        "split": "oracle",
+        "results_root": tmp_path,
+        "run_name": "cleanup-fail",
+        "retries": 1,
+    }
+    first = await runner.run_longmemeval_v1(**kwargs)
+    assert not (first / "answers.jsonl").exists()
+    errors = (first / "errors.jsonl").read_text()
+    assert "cleanup failed" in errors
+    await runner.run_longmemeval_v1(**kwargs)
+    assert read_jsonl(first / "answers.jsonl", AnswerRecord)
+
+
+@pytest.mark.asyncio
 async def test_v1_runner_rejects_resume_with_different_configuration(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
