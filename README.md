@@ -2,9 +2,7 @@
 
 # Redis Agent Memory
 
-[Redis Agent Memory](https://redis.io/agent-memory/) gives agents intelligent short-term memory and persistent context across conversations.
-
-This repository holds the [open-source research foundation](./V0/) and a [LongMemEval harness](./agent-memory-benchmark/) for that product.
+[Redis Agent Memory](https://redis.io/agent-memory/) gives agents intelligent short-term memory and persistent context across conversations. This repository holds the [open-source research foundation](./V0/) and a [LongMemEval harness](./agent-memory-benchmark/) for that product.
 
 </div>
 

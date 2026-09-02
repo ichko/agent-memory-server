@@ -25,6 +25,7 @@ from agent_memory_benchmark.memory.vertex_memory_bank import VertexMemoryBankSto
 from agent_memory_benchmark.memory.zep_store import ZepMemoryStore
 
 STORES: dict[str, type[MemoryStore]] = {
+    "redis-agent-memory": RedisAgentMemoryStore,
     "mem0": Mem0MemoryStore,
     "langmem": LangMemStore,
     "zep": ZepMemoryStore,
@@ -33,7 +34,6 @@ STORES: dict[str, type[MemoryStore]] = {
     "vertex-memory-bank": VertexMemoryBankStore,
     "bedrock-agentcore": BedrockAgentCoreStore,
     "oracle-agent-memory": OracleAgentMemoryStore,
-    "redis-agent-memory": RedisAgentMemoryStore,
 }
 
 
