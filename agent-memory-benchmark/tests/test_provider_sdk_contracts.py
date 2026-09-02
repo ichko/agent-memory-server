@@ -150,9 +150,9 @@ async def test_bedrock_reset_deletes_remote_events(
         def delete_event(self, **kwargs: Any) -> None:
             calls.append(("delete_event", kwargs))
 
-        def retrieve_memories(self, **kwargs: Any) -> list[dict[str, str]]:
-            calls.append(("retrieve_memories", kwargs))
-            return [{"memoryRecordId": "m1"}]
+        def list_memory_records(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
+            calls.append(("list_memory_records", kwargs))
+            return {"memoryRecords": [{"memoryRecordId": "m1", "content": {"text": "t"}}]}
 
         def delete_memory_record(self, **kwargs: Any) -> None:
             calls.append(("delete_memory_record", kwargs))
@@ -168,18 +168,17 @@ async def test_bedrock_reset_deletes_remote_events(
         user_id="u1",
     )
     store._sessions = ["u1-0"]
+    memories = await store.list_memories()
     await store.reset()
+    assert memories == ["t"]
     assert store._sessions == []
-    assert calls[0][0] == "list_events"
-    assert calls[1] == (
+    assert [name for name, _kwargs in calls] == [
+        "list_memory_records",
+        "list_events",
         "delete_event",
-        {
-            "memory_id": "mem-1",
-            "actor_id": "u1",
-            "session_id": "u1-0",
-            "event_id": "e1",
-        },
-    )
+        "list_memory_records",
+        "delete_memory_record",
+    ]
     assert calls[-1] == (
         "delete_memory_record",
         {"memory_id": "mem-1", "memory_record_id": "m1"},
@@ -330,6 +329,26 @@ async def test_graphiti_reset_uses_clear_data_helper(
     store._token_usage = TokenUsage()
     await store.reset()
     assert calls == [("driver", ["group-1"])]
+
+
+@pytest.mark.asyncio
+async def test_graphiti_lists_edges_by_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def get_by_group_ids(driver: Any, group_ids: list[str]) -> list[Any]:
+        assert driver == "driver"
+        assert group_ids == ["group-1"]
+        return [SimpleNamespace(fact="listed fact")]
+
+    _install_module(
+        monkeypatch,
+        "graphiti_core.edges",
+        SimpleNamespace(EntityEdge=SimpleNamespace(get_by_group_ids=get_by_group_ids)),
+    )
+    store = GraphitiStore.__new__(GraphitiStore)
+    store._graph = SimpleNamespace(driver="driver")
+    store._group_id = "group-1"
+    assert await store.list_memories() == ["listed fact"]
 
 
 def test_oracle_store_passes_llm_and_embedder(

@@ -29,6 +29,10 @@ _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 _SENSITIVE_PARAM = re.compile(
     r"(?:api[_-]?key|token|secret|password|credential)", re.IGNORECASE
 )
+_STRING_PARAM = re.compile(
+    r"(?:^|_)(?:id|ids|project|url|path|name|key|region|model|dsn|uri|user|host)$",
+    re.IGNORECASE,
+)
 
 
 def parse_provider_params(items: list[str]) -> dict[str, Any]:
@@ -44,6 +48,8 @@ def parse_provider_params(items: list[str]) -> dict[str, Any]:
             params[key] = lowered == "true"
         elif lowered in {"none", "null"}:
             params[key] = None
+        elif _STRING_PARAM.search(key):
+            params[key] = value
         else:
             for cast in (int, float):
                 try:

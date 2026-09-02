@@ -99,7 +99,18 @@ class OracleAgentMemoryStore(AnsweringStore):
         )
 
     async def list_memories(self) -> list[str]:
-        return await self._search("memories", 100)
+        getter = getattr(self._memory, "get_all", None)
+        if not getter:
+            return await self._search("", 100)
+        try:
+            results = await asyncio.to_thread(getter, user_id=self._user_id)
+        except TypeError:
+            from oracleagentmemory.apis.searchscope import SearchScope
+
+            results = await asyncio.to_thread(
+                getter, scope=SearchScope(user_id=self._user_id)
+            )
+        return [str(getattr(item, "content", item)) for item in results or []]
 
     async def reset(self) -> None:
         delete_user = getattr(self._memory, "delete_user", None)

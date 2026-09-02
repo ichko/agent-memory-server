@@ -110,6 +110,9 @@ def test_provider_param_coercion_and_last_value_wins() -> None:
             "label=007x",
             "empty=",
             "count=8",
+            "store_id=123",
+            "project=456789",
+            "top_k=10",
         ]
     ) == {
         "enabled": True,
@@ -119,6 +122,9 @@ def test_provider_param_coercion_and_last_value_wins() -> None:
         "ratio": 1.25,
         "label": "007x",
         "empty": "",
+        "store_id": "123",
+        "project": "456789",
+        "top_k": 10,
     }
 
 

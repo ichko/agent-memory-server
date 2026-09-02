@@ -86,7 +86,52 @@ class BedrockAgentCoreStore(AnsweringStore):
         )
 
     async def list_memories(self) -> list[str]:
-        return await self._retrieve("*", 50)
+        texts: list[str] = []
+        for record in await self._list_records():
+            text = _record_text(record)
+            if text:
+                texts.append(text)
+        return texts
+
+    async def _list_records(self) -> list[object]:
+        list_records = getattr(self._client, "list_memory_records", None)
+        if not list_records:
+            return []
+        collected: list[object] = []
+        token: str | None = None
+        for _ in range(50):
+            kwargs: dict[str, object] = {
+                "memory_id": self._memory_id,
+                "namespace_path": self._namespace_path,
+                "max_results": 100,
+            }
+            if token:
+                kwargs["next_token"] = token
+            try:
+                payload = await asyncio.to_thread(list_records, **kwargs)
+            except TypeError:
+                camel = {
+                    "memoryId": self._memory_id,
+                    "namespacePath": self._namespace_path,
+                    "maxResults": 100,
+                }
+                if token:
+                    camel["nextToken"] = token
+                payload = await asyncio.to_thread(list_records, **camel)
+            batch = _items(payload, "memoryRecords") or _items(
+                payload, "memoryRecordSummaries"
+            )
+            collected.extend(batch)
+            token = None
+            if isinstance(payload, dict):
+                token = payload.get("nextToken") or payload.get("next_token")
+            else:
+                token = getattr(payload, "nextToken", None) or getattr(
+                    payload, "next_token", None
+                )
+            if not token or not batch:
+                break
+        return collected
 
     async def reset(self) -> None:
         await self._delete_remote()
@@ -118,14 +163,7 @@ class BedrockAgentCoreStore(AnsweringStore):
         delete_record = getattr(self._client, "delete_memory_record", None)
         if not delete_record:
             return
-        records = await asyncio.to_thread(
-            self._client.retrieve_memories,
-            memory_id=self._memory_id,
-            namespace_path=self._namespace_path,
-            query="*",
-            top_k=50,
-        )
-        for record in _items(records, "memoryRecords"):
+        for record in await self._list_records():
             record_id = _field(record, "memoryRecordId", "id")
             if record_id:
                 await asyncio.to_thread(
@@ -144,6 +182,18 @@ def _items(payload: object, key: str) -> list[object]:
         value = payload.get(key) or payload.get("items")
         return value if isinstance(value, list) else []
     return []
+
+
+def _record_text(record: object) -> str:
+    if isinstance(record, dict):
+        content = record.get("content")
+        if isinstance(content, dict) and content.get("text"):
+            return str(content["text"])
+        return str(record.get("text") or "")
+    content = getattr(record, "content", None)
+    if isinstance(content, dict) and content.get("text"):
+        return str(content["text"])
+    return str(getattr(record, "text", None) or getattr(record, "fact", "") or "")
 
 
 def _field(item: object, *names: str) -> str | None:
