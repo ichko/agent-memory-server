@@ -234,24 +234,23 @@ class RedisAgentMemoryStore(AnsweringStore):
 
     async def _delete_memories(self) -> None:
         previous: set[str] | None = None
-        try:
-            for _ in range(10):
-                items = await self._search("")
-                memory_ids = [item.get("id") for item in items if item.get("id")]
-                if not memory_ids:
-                    return
-                current = set(memory_ids)
-                if previous is not None and current == previous:
-                    return
-                previous = current
-                response = await self._client.request(
-                    "DELETE",
-                    f"{self._store_path}/long-term-memory",
-                    json={"memoryIds": memory_ids},
-                )
-                response.raise_for_status()
-        except httpx.HTTPStatusError:
-            return
+        for _ in range(10):
+            items = await self._search("")
+            memory_ids = [item.get("id") for item in items if item.get("id")]
+            if not memory_ids:
+                return
+            current = set(memory_ids)
+            if previous is not None and current == previous:
+                return
+            previous = current
+            response = await self._client.request(
+                "DELETE",
+                f"{self._store_path}/long-term-memory",
+                json={"memoryIds": memory_ids},
+            )
+            if response.status_code == 404:
+                return
+            response.raise_for_status()
 
     def get_store_metadata(self) -> dict[str, Any]:
         return {

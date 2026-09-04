@@ -144,6 +144,36 @@ async def test_redis_agent_memory_reset_stops_when_search_does_not_shrink() -> N
 
 
 @pytest.mark.asyncio
+async def test_redis_agent_memory_reset_raises_when_memory_delete_fails() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path.endswith("/session-memory"):
+            return httpx.Response(200, json={"items": []})
+        if request.method == "POST" and request.url.path.endswith(
+            "/long-term-memory/search"
+        ):
+            return httpx.Response(200, json={"items": [{"id": "m1", "text": "left"}]})
+        if request.method == "DELETE" and request.url.path.endswith("/long-term-memory"):
+            return httpx.Response(500, json={"error": "failed"})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
+
+    store = RedisAgentMemoryStore(
+        base_url="https://memory.example",
+        store_id="store/one",
+        api_key="secret",
+        user_id="benchmark-run",
+    )
+    await store._client.aclose()
+    store._client = httpx.AsyncClient(
+        base_url="https://memory.example",
+        headers={"Authorization": "Bearer secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    with pytest.raises(httpx.HTTPStatusError):
+        await store.reset()
+    await store.close()
+
+
+@pytest.mark.asyncio
 async def test_redis_agent_memory_reset_lists_owner_sessions_by_page() -> None:
     listed: list[str | None] = []
     deleted: list[str] = []
