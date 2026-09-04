@@ -54,6 +54,7 @@ class OracleAgentMemoryStore(AnsweringStore):
         self._user_id = user_id
         self._max_search_results = max_search_results
         self._thread: Any = None
+        self._thread_id: str | None = None
 
     async def close(self) -> None:
         close = getattr(self._connection, "close", None)
@@ -63,8 +64,20 @@ class OracleAgentMemoryStore(AnsweringStore):
     async def ingest(self, sessions: list[SessionLike]) -> None:
         from oracleagentmemory.apis.thread import Message
 
-        self._thread = await asyncio.to_thread(
-            self._memory.create_thread, user_id=self._user_id
+        try:
+            self._thread = await asyncio.to_thread(
+                self._memory.create_thread,
+                thread_id=self._user_id,
+                user_id=self._user_id,
+            )
+        except TypeError:
+            self._thread = await asyncio.to_thread(
+                self._memory.create_thread, user_id=self._user_id
+            )
+        self._thread_id = (
+            getattr(self._thread, "thread_id", None)
+            or getattr(self._thread, "id", None)
+            or self._user_id
         )
         for session in sessions:
             messages = []
@@ -122,8 +135,15 @@ class OracleAgentMemoryStore(AnsweringStore):
         return [str(getattr(item, "content", item)) for item in results or []]
 
     async def reset(self) -> None:
+        thread_id = self._thread_id or getattr(self._thread, "thread_id", None)
+        if thread_id:
+            await asyncio.to_thread(self._memory.delete_thread, str(thread_id))
         delete_user = getattr(self._memory, "delete_user", None)
         if delete_user:
-            await asyncio.to_thread(delete_user, self._user_id)
+            try:
+                await asyncio.to_thread(delete_user, self._user_id, cascade=True)
+            except TypeError:
+                await asyncio.to_thread(delete_user, self._user_id)
         self._thread = None
+        self._thread_id = None
         self._token_usage = TokenUsage()

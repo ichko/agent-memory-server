@@ -613,3 +613,54 @@ async def test_oracle_ingest_includes_session_date(
     )
     assert added[0].kwargs["content"] == "Conversation date: 2026/01/02"
     assert added[1].kwargs["content"] == "hi"
+
+
+@pytest.mark.asyncio
+async def test_oracle_reset_deletes_thread(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deleted: list[str] = []
+
+    class Thread:
+        thread_id = "u1"
+
+        def add_messages(self, _messages: list[Any]) -> None:
+            return None
+
+    class OracleAgentMemory:
+        def __init__(self, **_kwargs: Any) -> None:
+            return None
+
+        def create_thread(self, **_kwargs: Any) -> Thread:
+            return Thread()
+
+        def delete_thread(self, thread_id: str) -> int:
+            deleted.append(thread_id)
+            return 1
+
+    class Message:
+        def __init__(self, **kwargs: Any) -> None:
+            self.kwargs = kwargs
+
+    _install_module(monkeypatch, "oracledb", SimpleNamespace())
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.core.llms.llm",
+        SimpleNamespace(Llm=lambda model: f"llm:{model}"),
+    )
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.core.embedders.embedder",
+        SimpleNamespace(Embedder=lambda model: f"embed:{model}"),
+    )
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.apis.thread",
+        SimpleNamespace(Message=Message),
+    )
+    sys.modules["oracleagentmemory.core"].OracleAgentMemory = OracleAgentMemory
+    store = OracleAgentMemoryStore(connection=object(), model="gpt-4o", user_id="u1")
+    await store.ingest([Session(label="now", messages=[ContextMessage("user", "hi")])])
+    await store.reset()
+    assert deleted == ["u1"]
+    assert store._thread is None

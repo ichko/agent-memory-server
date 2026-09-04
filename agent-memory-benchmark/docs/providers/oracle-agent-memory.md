@@ -52,9 +52,9 @@ uv run memory-bench judge --experiment smoke-oracle --judge-model gpt-4o
 
 ## Cleanup
 
-The wrapper calls the SDK's user deletion operation during reset. Inspect the
-database after interrupted runs and remove benchmark users or drop the
-dedicated PDB when finished.
+The wrapper deletes the ingest thread with `delete_thread` during reset, which
+also removes that thread's messages and memories. Inspect the database after
+interrupted runs and drop the dedicated PDB when finished.
 
 Stop the database container if you used one.
 
