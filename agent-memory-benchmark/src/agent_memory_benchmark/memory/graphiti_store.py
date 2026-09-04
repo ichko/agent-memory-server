@@ -83,12 +83,16 @@ class GraphitiStore(AnsweringStore):
     async def list_memories(self) -> list[str]:
         try:
             from graphiti_core.edges import EntityEdge
+            from graphiti_core.errors import GroupsEdgesNotFoundError
         except ImportError:
             return await self._facts("*", 50)
         getter = getattr(EntityEdge, "get_by_group_ids", None)
         if not getter:
             return await self._facts("*", 50)
-        edges = await getter(self._graph.driver, [self._group_id])
+        try:
+            edges = await getter(self._graph.driver, [self._group_id])
+        except GroupsEdgesNotFoundError:
+            return []
         return [getattr(edge, "fact", str(edge)) for edge in edges or []]
 
     async def reset(self) -> None:

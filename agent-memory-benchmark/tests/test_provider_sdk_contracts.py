@@ -424,6 +424,9 @@ async def test_graphiti_reset_uses_clear_data_helper(
 async def test_graphiti_lists_edges_by_group(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    class GroupsEdgesNotFoundError(Exception):
+        pass
+
     async def get_by_group_ids(driver: Any, group_ids: list[str]) -> list[Any]:
         assert driver == "driver"
         assert group_ids == ["group-1"]
@@ -434,10 +437,41 @@ async def test_graphiti_lists_edges_by_group(
         "graphiti_core.edges",
         SimpleNamespace(EntityEdge=SimpleNamespace(get_by_group_ids=get_by_group_ids)),
     )
+    _install_module(
+        monkeypatch,
+        "graphiti_core.errors",
+        SimpleNamespace(GroupsEdgesNotFoundError=GroupsEdgesNotFoundError),
+    )
     store = GraphitiStore.__new__(GraphitiStore)
     store._graph = SimpleNamespace(driver="driver")
     store._group_id = "group-1"
     assert await store.list_memories() == ["listed fact"]
+
+
+@pytest.mark.asyncio
+async def test_graphiti_returns_empty_list_when_group_has_no_edges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class GroupsEdgesNotFoundError(Exception):
+        pass
+
+    async def get_by_group_ids(_driver: Any, _group_ids: list[str]) -> list[Any]:
+        raise GroupsEdgesNotFoundError
+
+    _install_module(
+        monkeypatch,
+        "graphiti_core.edges",
+        SimpleNamespace(EntityEdge=SimpleNamespace(get_by_group_ids=get_by_group_ids)),
+    )
+    _install_module(
+        monkeypatch,
+        "graphiti_core.errors",
+        SimpleNamespace(GroupsEdgesNotFoundError=GroupsEdgesNotFoundError),
+    )
+    store = GraphitiStore.__new__(GraphitiStore)
+    store._graph = SimpleNamespace(driver="driver")
+    store._group_id = "group-1"
+    assert await store.list_memories() == []
 
 
 def test_oracle_store_passes_llm_and_embedder(
