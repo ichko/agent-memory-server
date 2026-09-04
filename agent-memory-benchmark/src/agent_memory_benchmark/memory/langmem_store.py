@@ -34,6 +34,7 @@ class LangMemStore(AnsweringStore):
         self._namespace = ("memories", user_id)
         self._search_limit = search_limit
         self._existing: list[Any] = []
+        self._keys: list[str] = []
 
     async def ingest(self, sessions: list[SessionLike]) -> None:
         for session in sessions:
@@ -50,10 +51,13 @@ class LangMemStore(AnsweringStore):
             self._existing = await self._manager.ainvoke(
                 {"messages": messages, "existing": self._existing}
             )
+        self._keys = []
         for index, memory in enumerate(self._existing):
+            key = str(index)
             value = memory[1] if isinstance(memory, tuple) else memory
             text = getattr(value, "content", value)
-            self._store.put(self._namespace, str(index), {"text": str(text)})
+            self._store.put(self._namespace, key, {"text": str(text)})
+            self._keys.append(key)
 
     async def query(
         self, question: str, *, question_date: str | None = None
@@ -65,13 +69,20 @@ class LangMemStore(AnsweringStore):
         return await self._answer(context, question, question_date)
 
     async def list_memories(self) -> list[str]:
-        return [
-            str(item.value.get("text", ""))
-            for item in self._store.search(self._namespace, limit=100)
-        ]
+        texts: list[str] = []
+        for key in self._keys:
+            item = self._store.get(self._namespace, key)
+            if item is None:
+                continue
+            value = getattr(item, "value", item)
+            texts.append(
+                str(value.get("text", "") if isinstance(value, dict) else value)
+            )
+        return texts
 
     async def reset(self) -> None:
-        for item in self._store.search(self._namespace, limit=100):
-            self._store.delete(self._namespace, item.key)
+        for key in self._keys:
+            self._store.delete(self._namespace, key)
+        self._keys.clear()
         self._existing.clear()
         self._token_usage = TokenUsage()

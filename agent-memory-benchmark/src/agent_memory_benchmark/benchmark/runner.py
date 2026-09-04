@@ -256,6 +256,7 @@ async def run_longmemeval_v1(
     write_lock = asyncio.Lock()
     semaphore = asyncio.Semaphore(concurrency)
     started = datetime.now(timezone.utc)
+    prior_duration = metadata.duration_seconds or 0
 
     async def process(index: int, example: Any) -> None:
         qa = example.qa_pairs[0]
@@ -329,7 +330,8 @@ async def run_longmemeval_v1(
         else None
     )
     metadata.duration_seconds = round(
-        (datetime.now(timezone.utc) - started).total_seconds(), 1
+        prior_duration + (datetime.now(timezone.utc) - started).total_seconds(),
+        1,
     )
     metadata.save(out_dir / "metadata.json")
     return out_dir

@@ -203,6 +203,12 @@ async def test_v1_runner_resumes_and_skips_completed_questions(
     assert metadata.num_answers == 2
     assert metadata.completed_at is not None
     assert metadata.provider_metadata == {"kind": "fake"}
+    metadata.duration_seconds = 12.5
+    metadata.save(out_dir / "metadata.json")
+    await runner.run_longmemeval_v1(**kwargs)
+    resumed_meta = ExperimentMetadata.load(out_dir / "metadata.json")
+    assert resumed_meta.duration_seconds is not None
+    assert resumed_meta.duration_seconds >= 12.5
 
 
 @pytest.mark.asyncio

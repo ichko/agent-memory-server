@@ -67,7 +67,7 @@ class BedrockAgentCoreStore(AnsweringStore):
         records = await asyncio.to_thread(
             self._client.retrieve_memories,
             memory_id=self._memory_id,
-            namespace_path=self._namespace_path,
+            namespace=self._namespace_path,
             query=query,
             top_k=limit,
         )
@@ -102,7 +102,7 @@ class BedrockAgentCoreStore(AnsweringStore):
         for _ in range(50):
             kwargs: dict[str, object] = {
                 "memory_id": self._memory_id,
-                "namespace_path": self._namespace_path,
+                "namespace": self._namespace_path,
                 "max_results": 100,
             }
             if token:
@@ -112,7 +112,7 @@ class BedrockAgentCoreStore(AnsweringStore):
             except TypeError:
                 camel = {
                     "memoryId": self._memory_id,
-                    "namespacePath": self._namespace_path,
+                    "namespace": self._namespace_path,
                     "maxResults": 100,
                 }
                 if token:

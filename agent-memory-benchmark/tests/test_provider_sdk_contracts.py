@@ -15,6 +15,7 @@ from agent_memory_benchmark.memory.bedrock_agentcore_store import (
     BedrockAgentCoreStore,
 )
 from agent_memory_benchmark.memory.graphiti_store import GraphitiStore
+from agent_memory_benchmark.memory.langmem_store import LangMemStore
 from agent_memory_benchmark.memory.mem0_store import Mem0MemoryStore
 from agent_memory_benchmark.memory.oracle_agent_memory_store import (
     OracleAgentMemoryStore,
@@ -81,7 +82,12 @@ async def test_mem0_search_and_list_use_v2_filters(
     monkeypatch.setattr(common, "generate_answer", _fake_answer)
     store = Mem0MemoryStore(user_id="u1", search_limit=7)
     await store.ingest(
-        [Session(label="2026/01/02", messages=[ContextMessage("user", "I like coffee")])]
+        [
+            Session(
+                label="2026/01/02",
+                messages=[ContextMessage("user", "I like coffee")],
+            )
+        ]
     )
     memories = await store.list_memories()
     result = await store.query("drink?")
@@ -163,7 +169,15 @@ async def test_bedrock_reset_deletes_remote_events(
         def delete_event(self, **kwargs: Any) -> None:
             calls.append(("delete_event", kwargs))
 
+        def retrieve_memories(self, **kwargs: Any) -> list[dict[str, Any]]:
+            if "namespace_path" in kwargs or "namespacePath" in kwargs:
+                raise TypeError("unexpected keyword argument 'namespace_path'")
+            calls.append(("retrieve_memories", kwargs))
+            return [{"content": {"text": "t"}}]
+
         def list_memory_records(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
+            if "namespace_path" in kwargs or "namespacePath" in kwargs:
+                raise TypeError("unexpected keyword argument 'namespace_path'")
             calls.append(("list_memory_records", kwargs))
             return {
                 "memoryRecords": [{"memoryRecordId": "m1", "content": {"text": "t"}}]
@@ -183,11 +197,17 @@ async def test_bedrock_reset_deletes_remote_events(
         user_id="u1",
     )
     store._sessions = ["u1-0"]
+    monkeypatch.setattr(common, "generate_answer", _fake_answer)
+    result = await store.query("drink?")
     memories = await store.list_memories()
     await store.reset()
+    assert result.answer == "t"
     assert memories == ["t"]
     assert store._sessions == []
+    assert calls[0][1]["namespace"] == "/ns/u1/"
+    assert calls[1][1]["namespace"] == "/ns/u1/"
     assert [name for name, _kwargs in calls] == [
+        "retrieve_memories",
         "list_memory_records",
         "list_events",
         "delete_event",
@@ -322,6 +342,60 @@ async def test_supermemory_wait_pages_through_document_list() -> None:
     memories = await store.wait_for_extraction(timeout=1, poll_interval=0.01)
     assert memories == ["one", "two"]
     assert pages == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_supermemory_prefers_singular_container_tag() -> None:
+    seen: list[dict[str, Any]] = []
+
+    async def add(**kwargs: Any) -> SimpleNamespace:
+        seen.append(kwargs)
+        if "container_tag" not in kwargs:
+            raise TypeError("unexpected keyword argument 'container_tags'")
+        return SimpleNamespace(id="d1")
+
+    store = SupermemoryStore.__new__(SupermemoryStore)
+    store._client = SimpleNamespace(add=add)
+    store._user_id = "u1"
+    store._documents = []
+    store._document_ids = set()
+    await store.ingest(
+        [Session(label="now", messages=[ContextMessage("user", "hi")])]
+    )
+    assert seen[0]["container_tag"] == "u1"
+    assert "container_tags" not in seen[0]
+
+
+@pytest.mark.asyncio
+async def test_langmem_list_and_reset_use_tracked_keys() -> None:
+    class Store:
+        def __init__(self) -> None:
+            self.items: dict[str, SimpleNamespace] = {}
+
+        def get(self, _ns: object, key: str) -> SimpleNamespace | None:
+            return self.items.get(key)
+
+        def delete(self, _ns: object, key: str) -> None:
+            self.items.pop(key, None)
+
+        def search(self, *_args: object, **_kwargs: object) -> list[object]:
+            raise AssertionError("list/reset must not search")
+
+    store = LangMemStore.__new__(LangMemStore)
+    store._store = Store()
+    store._namespace = ("memories", "u1")
+    store._keys = []
+    store._existing = []
+    store._token_usage = TokenUsage()
+    for index in range(120):
+        key = str(index)
+        store._store.items[key] = SimpleNamespace(value={"text": f"m{index}"})
+        store._keys.append(key)
+    memories = await store.list_memories()
+    assert len(memories) == 120
+    await store.reset()
+    assert store._keys == []
+    assert store._store.items == {}
 
 
 @pytest.mark.asyncio

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from typing import Any
 
 from agent_memory_benchmark.memory.base import QueryResult, SessionLike, TokenUsage
 from agent_memory_benchmark.memory.common import (
@@ -41,15 +42,21 @@ class SupermemoryStore(AnsweringStore):
         self._documents: list[str] = []
         self._document_ids: set[str] = set()
 
+    async def _call(self, method: Any, **kwargs: Any) -> Any:
+        try:
+            return await method(container_tag=self._user_id, **kwargs)
+        except TypeError:
+            return await method(container_tags=[self._user_id], **kwargs)
+
     async def close(self) -> None:
         await self._client.close()
 
     async def ingest(self, sessions: list[SessionLike]) -> None:
         for index, session in enumerate(sessions):
             content = session_text(session)
-            response = await self._client.add(
+            response = await self._call(
+                self._client.add,
                 content=content,
-                container_tags=[self._user_id],
                 custom_id=f"{self._user_id}-{index}",
             )
             self._documents.append(content)
@@ -93,8 +100,8 @@ class SupermemoryStore(AnsweringStore):
         collected: list[object] = []
         page = 1
         while page <= 50:
-            response = await self._client.documents.list(
-                container_tags=[self._user_id],
+            response = await self._call(
+                self._client.documents.list,
                 limit=200,
                 page=page,
             )
@@ -118,9 +125,9 @@ class SupermemoryStore(AnsweringStore):
     async def query(
         self, question: str, *, question_date: str | None = None
     ) -> QueryResult:
-        response = await self._client.search.execute(
+        response = await self._call(
+            self._client.search.execute,
             q=question,
-            container_tags=[self._user_id],
             limit=self._search_limit,
         )
         results = getattr(response, "results", None) or []
@@ -134,7 +141,7 @@ class SupermemoryStore(AnsweringStore):
         return list(self._documents)
 
     async def reset(self) -> None:
-        await self._client.documents.delete_bulk(container_tags=[self._user_id])
+        await self._call(self._client.documents.delete_bulk)
         self._documents.clear()
         self._document_ids.clear()
         self._token_usage = TokenUsage()
