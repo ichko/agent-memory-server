@@ -144,6 +144,53 @@ async def test_redis_agent_memory_reset_stops_when_search_does_not_shrink() -> N
 
 
 @pytest.mark.asyncio
+async def test_redis_agent_memory_reset_lists_owner_sessions_by_page() -> None:
+    listed: list[str | None] = []
+    deleted: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path.endswith("/session-memory"):
+            listed.append(request.url.params.get("filterOwnerId"))
+            listed.append(request.url.params.get("pageToken"))
+            if request.url.params.get("pageToken") is None:
+                return httpx.Response(
+                    200,
+                    json={
+                        "items": ["benchmark-run-s0"],
+                        "nextPageToken": "page-2",
+                    },
+                )
+            return httpx.Response(200, json={"items": ["benchmark-run-s1"]})
+        if request.method == "POST" and request.url.path.endswith(
+            "/long-term-memory/search"
+        ):
+            return httpx.Response(200, json={"items": []})
+        if request.method == "DELETE" and "/session-memory/" in request.url.path:
+            deleted.append(request.url.path.rsplit("/", 1)[-1])
+            return httpx.Response(200, json={})
+        if request.method == "DELETE":
+            return httpx.Response(200, json={"deleted": []})
+        raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
+
+    store = RedisAgentMemoryStore(
+        base_url="https://memory.example",
+        store_id="store/one",
+        api_key="secret",
+        user_id="benchmark-run",
+    )
+    await store._client.aclose()
+    store._client = httpx.AsyncClient(
+        base_url="https://memory.example",
+        headers={"Authorization": "Bearer secret"},
+        transport=httpx.MockTransport(handler),
+    )
+    await store.reset()
+    await store.close()
+    assert listed == ["benchmark-run", None, "benchmark-run", "page-2"]
+    assert set(deleted) == {"benchmark-run-s0", "benchmark-run-s1"}
+
+
+@pytest.mark.asyncio
 async def test_redis_agent_memory_lists_all_search_pages() -> None:
     tokens: list[str | None] = []
 

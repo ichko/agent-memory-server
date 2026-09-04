@@ -23,7 +23,7 @@ SPLITS = {
     "small": "longmemeval_s_cleaned",
     "medium": "longmemeval_m_cleaned",
 }
-_SUPPLEMENTARY_UTF8_RE = re.compile(rb"[\xf0-\xf4][\x80-\xbf]{3}")
+_SUPPLEMENTARY_UTF8_RE = re.compile(r"[\U00010000-\U0010ffff]+")
 
 
 class LongMemEvalAdapter(DatasetAdapter):
@@ -56,19 +56,14 @@ class LongMemEvalAdapter(DatasetAdapter):
         payload = _read_rows(path) if path.exists() else None
         if payload is None:
             path.parent.mkdir(parents=True, exist_ok=True)
-            response = httpx.get(
+            _download(
                 f"{BASE_URL}/{filename}",
+                path,
                 timeout=self.timeout,
-                follow_redirects=True,
             )
-            response.raise_for_status()
-            raw = _SUPPLEMENTARY_UTF8_RE.sub(b"", response.content)
-            payload = json.loads(raw)
-            if not isinstance(payload, list):
+            payload = _read_rows(path)
+            if payload is None:
                 raise ValueError(f"Expected a JSON list from {filename}")
-            temporary = path.with_suffix(path.suffix + ".tmp")
-            temporary.write_bytes(response.content)
-            temporary.replace(path)
         self._rows = payload
         return payload
 
@@ -112,7 +107,10 @@ class LongMemEvalAdapter(DatasetAdapter):
         for index, raw_session in enumerate(raw_sessions):
             label = dates[index] if index < len(dates) else f"Session {index + 1}"
             messages = [
-                ContextMessage(speaker=str(turn["role"]), text=str(turn["content"]))
+                ContextMessage(
+                    speaker=str(turn["role"]),
+                    text=_SUPPLEMENTARY_UTF8_RE.sub("", str(turn["content"])),
+                )
                 for turn in raw_session
                 if isinstance(turn, dict) and "role" in turn and "content" in turn
             ]
@@ -136,9 +134,20 @@ class LongMemEvalAdapter(DatasetAdapter):
             return None
 
 
+def _download(url: str, path: Path, timeout: float) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    with httpx.stream("GET", url, timeout=timeout, follow_redirects=True) as response:
+        response.raise_for_status()
+        with temporary.open("wb") as handle:
+            for chunk in response.iter_bytes(1024 * 1024):
+                handle.write(chunk)
+    temporary.replace(path)
+
+
 def _read_rows(path: Path) -> list[dict] | None:
     try:
-        payload = json.loads(_SUPPLEMENTARY_UTF8_RE.sub(b"", path.read_bytes()))
+        with path.open("rb") as handle:
+            payload = json.load(handle)
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
     return payload if isinstance(payload, list) else None

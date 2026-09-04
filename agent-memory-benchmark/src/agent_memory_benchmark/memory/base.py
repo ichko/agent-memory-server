@@ -131,7 +131,9 @@ class MemoryStore(ABC):
             elif count and now - last_change >= stable_seconds:
                 return latest
             await asyncio.sleep(poll_interval)
-        return latest
+        raise TimeoutError(
+            f"Memory extraction did not stabilize within {timeout} seconds"
+        )
 
     @abstractmethod
     async def reset(self) -> None:

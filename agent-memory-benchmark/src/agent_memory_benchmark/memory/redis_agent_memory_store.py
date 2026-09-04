@@ -173,7 +173,9 @@ class RedisAgentMemoryStore(AnsweringStore):
             elif count and now - last_change >= self._extraction_stable_seconds:
                 return latest
             await asyncio.sleep(effective_poll)
-        return latest
+        raise TimeoutError(
+            f"Memory extraction did not stabilize within {effective_timeout} seconds"
+        )
 
     async def query(
         self, question: str, *, question_date: str | None = None
@@ -198,16 +200,29 @@ class RedisAgentMemoryStore(AnsweringStore):
 
     async def _delete_sessions(self) -> None:
         session_ids = set(self._session_ids)
-        response = await self._client.get(
-            f"{self._store_path}/session-memory", params={"includeAll": "true"}
-        )
-        if response.status_code != 404:
+        page_token: str | None = None
+        for _ in range(50):
+            params: dict[str, str] = {
+                "filterOwnerId": self._owner_id,
+                "limit": "1000",
+            }
+            if page_token:
+                params["pageToken"] = page_token
+            response = await self._client.get(
+                f"{self._store_path}/session-memory",
+                params=params,
+            )
+            if response.status_code == 404:
+                break
             response.raise_for_status()
             payload = response.json()
             for item in payload.get("items") or payload.get("sessions") or []:
                 session_id = item if isinstance(item, str) else item.get("sessionId")
-                if session_id and session_id.startswith(f"{self._owner_id}-s"):
+                if session_id:
                     session_ids.add(session_id)
+            page_token = payload.get("nextPageToken") or payload.get("next_page_token")
+            if not page_token:
+                break
         for session_id in session_ids:
             response = await self._client.delete(
                 f"{self._store_path}/session-memory/{quote(session_id, safe='')}"

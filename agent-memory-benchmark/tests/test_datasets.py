@@ -81,26 +81,35 @@ def test_longmemeval_v1_download_follows_huggingface_redirects(
     captured: dict[str, object] = {}
 
     class FakeResponse:
-        content = (
-            b'[{"question_id":"q","question":"Q","answer":"A",'
-            b'"haystack_sessions":[],"haystack_dates":[]}]'
-        )
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
 
         def raise_for_status(self) -> None:
             return None
 
-    def fake_get(url: str, **kwargs: object) -> FakeResponse:
+        def iter_bytes(self, _chunk_size: int = 0) -> object:
+            yield (
+                b'[{"question_id":"q","question":"Q","answer":"A",'
+                b'"haystack_sessions":[],"haystack_dates":[]}]'
+            )
+
+    def fake_stream(method: str, url: str, **kwargs: object) -> FakeResponse:
+        captured["method"] = method
         captured["url"] = url
         captured.update(kwargs)
         return FakeResponse()
 
     monkeypatch.setattr(
-        "agent_memory_benchmark.datasets.longmemeval.httpx.get", fake_get
+        "agent_memory_benchmark.datasets.longmemeval.httpx.stream", fake_stream
     )
     adapter = LongMemEvalAdapter(split="oracle", cache_dir=tmp_path)
     rows = adapter.load_raw()
 
     assert captured["follow_redirects"] is True
+    assert captured["method"] == "GET"
     assert "longmemeval_oracle.json" in str(captured["url"])
     assert len(rows) == 1
 
@@ -114,21 +123,28 @@ def test_longmemeval_v1_redownloads_truncated_cache(
     downloads = 0
 
     class FakeResponse:
-        content = (
-            b'[{"question_id":"q","question":"Q","answer":"A",'
-            b'"haystack_sessions":[],"haystack_dates":[]}]'
-        )
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
 
         def raise_for_status(self) -> None:
             return None
 
-    def fake_get(*_args: object, **_kwargs: object) -> FakeResponse:
+        def iter_bytes(self, _chunk_size: int = 0) -> object:
+            yield (
+                b'[{"question_id":"q","question":"Q","answer":"A",'
+                b'"haystack_sessions":[],"haystack_dates":[]}]'
+            )
+
+    def fake_stream(*_args: object, **_kwargs: object) -> FakeResponse:
         nonlocal downloads
         downloads += 1
         return FakeResponse()
 
     monkeypatch.setattr(
-        "agent_memory_benchmark.datasets.longmemeval.httpx.get", fake_get
+        "agent_memory_benchmark.datasets.longmemeval.httpx.stream", fake_stream
     )
     rows = LongMemEvalAdapter(split="oracle", cache_dir=tmp_path).load_raw()
     assert downloads == 1

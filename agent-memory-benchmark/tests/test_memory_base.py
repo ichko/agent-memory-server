@@ -131,3 +131,14 @@ async def test_wait_for_extraction_waits_until_count_is_stable() -> None:
     )
     assert memories == ["first", "second"]
     assert store.calls >= 4
+
+
+@pytest.mark.asyncio
+async def test_wait_for_extraction_times_out_instead_of_scoring_empty() -> None:
+    class EmptyStore(NeutralAnswerStore):
+        async def list_memories(self) -> list[str]:
+            return []
+
+    store = EmptyStore()
+    with pytest.raises(TimeoutError, match="did not stabilize"):
+        await store.wait_for_extraction(timeout=0.05, poll_interval=0.01)
