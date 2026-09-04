@@ -109,7 +109,10 @@ class MemoryStore(ABC):
     async def list_memories(self) -> list[str]:
         pass
 
-    async def wait_for_extraction(
+    async def wait_for_extraction(self, **_kwargs: Any) -> list[str]:
+        return await self.list_memories()
+
+    async def _wait_until_stable(
         self,
         *,
         timeout: float = 1800,

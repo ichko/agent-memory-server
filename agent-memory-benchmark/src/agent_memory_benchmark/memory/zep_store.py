@@ -11,13 +11,13 @@ from agent_memory_benchmark.memory.base import (
     normalize_role,
 )
 from agent_memory_benchmark.memory.common import (
-    AnsweringStore,
+    AsyncExtractionStore,
     missing_dependency,
     session_created_at,
 )
 
 
-class ZepMemoryStore(AnsweringStore):
+class ZepMemoryStore(AsyncExtractionStore):
     def __init__(
         self,
         *,

@@ -61,3 +61,20 @@ class AnsweringStore(MemoryStore):
 
     def get_store_metadata(self) -> dict[str, Any]:
         return {"answer_model": self._model}
+
+
+class AsyncExtractionStore(AnsweringStore):
+    """Poll list_memories until extraction has produced a stable count."""
+
+    async def wait_for_extraction(
+        self,
+        *,
+        timeout: float = 1800,
+        poll_interval: float = 15,
+        stable_seconds: float = 30,
+    ) -> list[str]:
+        return await self._wait_until_stable(
+            timeout=timeout,
+            poll_interval=poll_interval,
+            stable_seconds=stable_seconds,
+        )

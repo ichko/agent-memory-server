@@ -9,10 +9,13 @@ from agent_memory_benchmark.memory.base import (
     TokenUsage,
     normalize_role,
 )
-from agent_memory_benchmark.memory.common import AnsweringStore, missing_dependency
+from agent_memory_benchmark.memory.common import (
+    AsyncExtractionStore,
+    missing_dependency,
+)
 
 
-class BedrockAgentCoreStore(AnsweringStore):
+class BedrockAgentCoreStore(AsyncExtractionStore):
     def __init__(
         self,
         *,

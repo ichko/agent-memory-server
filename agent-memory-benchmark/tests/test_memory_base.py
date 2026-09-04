@@ -12,7 +12,7 @@ from agent_memory_benchmark.memory import (
     TokenUsage,
     normalize_role,
 )
-from agent_memory_benchmark.memory.common import AnsweringStore
+from agent_memory_benchmark.memory.common import AnsweringStore, AsyncExtractionStore
 from agent_memory_benchmark.memory.llm import build_prompt
 
 
@@ -114,7 +114,7 @@ def test_role_normalization(speaker: str, role: str) -> None:
 
 @pytest.mark.asyncio
 async def test_wait_for_extraction_waits_until_count_is_stable() -> None:
-    class GrowingStore(NeutralAnswerStore):
+    class GrowingStore(AsyncExtractionStore, NeutralAnswerStore):
         def __init__(self) -> None:
             super().__init__(model="neutral-model")
             self.calls = 0
@@ -136,7 +136,7 @@ async def test_wait_for_extraction_waits_until_count_is_stable() -> None:
 
 
 def test_wait_for_extraction_defaults_cover_async_extraction() -> None:
-    params = inspect.signature(MemoryStore.wait_for_extraction).parameters
+    params = inspect.signature(AsyncExtractionStore.wait_for_extraction).parameters
     assert params["timeout"].default == 1800
     assert params["poll_interval"].default == 15
     assert params["stable_seconds"].default == 30
@@ -144,10 +144,27 @@ def test_wait_for_extraction_defaults_cover_async_extraction() -> None:
 
 @pytest.mark.asyncio
 async def test_wait_for_extraction_times_out_instead_of_scoring_empty() -> None:
-    class EmptyStore(NeutralAnswerStore):
+    class EmptyStore(AsyncExtractionStore, NeutralAnswerStore):
         async def list_memories(self) -> list[str]:
             return []
 
     store = EmptyStore()
     with pytest.raises(TimeoutError, match="did not stabilize"):
         await store.wait_for_extraction(timeout=0.05, poll_interval=0.01)
+
+
+def test_async_adapters_poll_until_extraction_is_stable() -> None:
+    from agent_memory_benchmark.memory.bedrock_agentcore_store import (
+        BedrockAgentCoreStore,
+    )
+    from agent_memory_benchmark.memory.langmem_store import LangMemStore
+    from agent_memory_benchmark.memory.zep_store import ZepMemoryStore
+
+    assert (
+        BedrockAgentCoreStore.wait_for_extraction
+        is AsyncExtractionStore.wait_for_extraction
+    )
+    assert (
+        ZepMemoryStore.wait_for_extraction is AsyncExtractionStore.wait_for_extraction
+    )
+    assert LangMemStore.wait_for_extraction is MemoryStore.wait_for_extraction
