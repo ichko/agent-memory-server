@@ -107,25 +107,26 @@ async def test_vertex_uses_memories_subclient(
 ) -> None:
     calls: list[str] = []
     generate_kwargs: list[dict[str, Any]] = []
+    retrieve_kwargs: list[dict[str, Any]] = []
+    purge_kwargs: list[dict[str, Any]] = []
 
     class Memories:
         def generate(self, **kwargs: Any) -> None:
             calls.append("generate")
             generate_kwargs.append(kwargs)
 
-        def retrieve(self, **_kwargs: Any) -> list[Any]:
+        def retrieve(self, **kwargs: Any) -> list[Any]:
             calls.append("retrieve")
+            retrieve_kwargs.append(kwargs)
             return [SimpleNamespace(memory=SimpleNamespace(fact="likes coffee"))]
 
         def list(self, **_kwargs: Any) -> list[Any]:
             calls.append("list")
-            return [
-                SimpleNamespace(
-                    fact="likes coffee",
-                    scope={"user_id": "u1"},
-                    name="projects/p/memories/m1",
-                )
-            ]
+            return []
+
+        def purge(self, **kwargs: Any) -> None:
+            calls.append("purge")
+            purge_kwargs.append(kwargs)
 
         def delete(self, **_kwargs: Any) -> None:
             calls.append("delete")
@@ -145,9 +146,51 @@ async def test_vertex_uses_memories_subclient(
     await store.query("drink?")
     await store.list_memories()
     await store.reset()
-    assert calls == ["generate", "retrieve", "list", "list", "delete"]
+    assert calls == ["generate", "retrieve", "retrieve", "purge"]
     events = generate_kwargs[0]["direct_contents_source"]["events"]
     assert events[0]["content"]["parts"][0]["text"] == "Conversation date: now"
+    assert retrieve_kwargs[0]["scope"] == {"user_id": "u1"}
+    assert retrieve_kwargs[1] == {"name": "engines/e", "scope": {"user_id": "u1"}}
+    assert purge_kwargs[0]["filter"] == 'scope.user_id="u1"'
+    assert purge_kwargs[0]["force"] is True
+
+
+@pytest.mark.asyncio
+async def test_vertex_reset_matches_non_dict_scope(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deleted: list[str] = []
+
+    class Memories:
+        def list(self, **_kwargs: Any) -> list[Any]:
+            return [
+                SimpleNamespace(
+                    name="projects/p/memories/m1",
+                    scope=SimpleNamespace(
+                        model_dump=lambda: {"user_id": "u1"},
+                    ),
+                ),
+                SimpleNamespace(
+                    name="projects/p/memories/other",
+                    scope=SimpleNamespace(
+                        model_dump=lambda: {"user_id": "other"},
+                    ),
+                ),
+            ]
+
+        def delete(self, **kwargs: Any) -> None:
+            deleted.append(kwargs["name"])
+
+    class Client:
+        def __init__(self, **_kwargs: Any) -> None:
+            self.agent_engines = SimpleNamespace(memories=Memories())
+
+    _install_module(monkeypatch, "vertexai", SimpleNamespace(Client=Client))
+    store = VertexMemoryBankStore(
+        project="p", agent_engine_name="engines/e", user_id="u1"
+    )
+    await store.reset()
+    assert deleted == ["projects/p/memories/m1"]
 
 
 @pytest.mark.asyncio

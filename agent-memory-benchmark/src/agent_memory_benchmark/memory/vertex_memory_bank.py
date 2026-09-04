@@ -96,23 +96,57 @@ class VertexMemoryBankStore(AnsweringStore):
         )
         return await self._answer(context, question, question_date)
 
-    async def list_memories(self) -> list[str]:
-        memories = await asyncio.to_thread(
-            lambda: list(self._client.agent_engines.memories.list(name=self._engine))
+    async def _scoped(self, **kwargs: object) -> list[object]:
+        return await asyncio.to_thread(
+            lambda: list(
+                self._client.agent_engines.memories.retrieve(
+                    name=self._engine,
+                    scope=self._scope,
+                    **kwargs,
+                )
+            )
         )
-        return [
-            str(getattr(item, "fact", ""))
-            for item in memories
-            if getattr(item, "scope", None) == self._scope
-        ]
+
+    async def list_memories(self) -> list[str]:
+        texts: list[str] = []
+        for item in await self._scoped():
+            fact = getattr(getattr(item, "memory", item), "fact", "")
+            if fact:
+                texts.append(str(fact))
+        return texts
 
     async def reset(self) -> None:
-        memories = await asyncio.to_thread(
-            lambda: list(self._client.agent_engines.memories.list(name=self._engine))
-        )
-        for memory in memories:
-            if getattr(memory, "scope", None) == self._scope:
-                await asyncio.to_thread(
-                    self._client.agent_engines.memories.delete, name=memory.name
-                )
+        memories = self._client.agent_engines.memories
+        purge = getattr(memories, "purge", None)
+        if purge:
+            kwargs: dict[str, object] = {
+                "name": self._engine,
+                "filter": f'scope.user_id="{self._scope["user_id"]}"',
+                "force": True,
+                "config": {"wait_for_completion": True},
+            }
+            try:
+                await asyncio.to_thread(purge, **kwargs)
+            except TypeError:
+                kwargs.pop("config", None)
+                await asyncio.to_thread(purge, **kwargs)
+        else:
+            for memory in await asyncio.to_thread(
+                lambda: list(memories.list(name=self._engine))
+            ):
+                if _same_scope(getattr(memory, "scope", None), self._scope):
+                    await asyncio.to_thread(memories.delete, name=memory.name)
         self._token_usage = TokenUsage()
+
+
+def _same_scope(scope: object, expected: dict[str, str]) -> bool:
+    if hasattr(scope, "model_dump"):
+        scope = scope.model_dump()
+    elif hasattr(scope, "to_dict"):
+        scope = scope.to_dict()
+    elif not isinstance(scope, dict):
+        try:
+            scope = dict(scope) if scope is not None else {}
+        except TypeError:
+            return False
+    return scope == expected
