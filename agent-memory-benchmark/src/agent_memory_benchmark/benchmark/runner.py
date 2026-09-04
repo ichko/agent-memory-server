@@ -21,7 +21,7 @@ from agent_memory_benchmark.benchmark.models import (
     read_jsonl,
 )
 from agent_memory_benchmark.datasets import LongMemEvalAdapter
-from agent_memory_benchmark.memory import STORES
+from agent_memory_benchmark.memory import STORES, MemoryStore
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -167,8 +167,11 @@ def _usage(store: Any) -> dict[str, int] | None:
 
 
 async def _memories(store: Any) -> list[str]:
-    wait = getattr(store, "wait_for_extraction", None)
-    values = await wait() if callable(wait) else await store.list_memories()
+    wait = getattr(type(store), "wait_for_extraction", None)
+    if wait is not None and wait is not MemoryStore.wait_for_extraction:
+        values = await store.wait_for_extraction()
+    else:
+        values = await store.list_memories()
     return [str(value) for value in values]
 
 

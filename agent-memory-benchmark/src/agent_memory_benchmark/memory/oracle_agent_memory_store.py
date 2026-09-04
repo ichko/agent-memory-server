@@ -67,7 +67,18 @@ class OracleAgentMemoryStore(AnsweringStore):
             self._memory.create_thread, user_id=self._user_id
         )
         for session in sessions:
-            messages = [
+            messages = []
+            if session.label:
+                messages.append(
+                    Message(
+                        role="user",
+                        content=f"Conversation date: {session.label}",
+                        timestamp=(
+                            session.date.isoformat() if session.date else None
+                        ),
+                    )
+                )
+            messages.extend(
                 Message(
                     role=normalize_role(item.speaker),
                     content=item.text,
@@ -75,7 +86,7 @@ class OracleAgentMemoryStore(AnsweringStore):
                 )
                 for item in session.messages
                 if item.text.strip()
-            ]
+            )
             await asyncio.to_thread(self._thread.add_messages, messages)
 
     async def _search(self, query: str, limit: int) -> list[str]:

@@ -464,3 +464,79 @@ def test_oracle_store_passes_llm_and_embedder(
     OracleAgentMemoryStore(connection=object(), model="gpt-4o", embedder_model="emb")
     assert constructed["llm"] == "llm:gpt-4o"
     assert constructed["embedder"] == "embed:emb"
+
+
+@pytest.mark.asyncio
+async def test_bedrock_ingest_includes_session_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    class Client:
+        def __init__(self, **_kwargs: Any) -> None:
+            return None
+
+        def create_event(self, **kwargs: Any) -> None:
+            calls.append(kwargs)
+
+    _install_module(
+        monkeypatch,
+        "bedrock_agentcore.memory",
+        SimpleNamespace(MemoryClient=Client),
+    )
+    store = BedrockAgentCoreStore(
+        memory_id="mem-1",
+        namespace_path="/ns/{user_id}/",
+        user_id="u1",
+    )
+    await store.ingest(
+        [Session(label="2026/01/02", messages=[ContextMessage("user", "hi")])]
+    )
+    assert calls[0]["messages"][0] == ("Conversation date: 2026/01/02", "USER")
+    assert calls[0]["messages"][1] == ("hi", "USER")
+
+
+@pytest.mark.asyncio
+async def test_oracle_ingest_includes_session_date(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    added: list[Any] = []
+
+    class Thread:
+        def add_messages(self, messages: list[Any]) -> None:
+            added.extend(messages)
+
+    class OracleAgentMemory:
+        def __init__(self, **_kwargs: Any) -> None:
+            return None
+
+        def create_thread(self, **_kwargs: Any) -> Thread:
+            return Thread()
+
+    class Message:
+        def __init__(self, **kwargs: Any) -> None:
+            self.kwargs = kwargs
+
+    _install_module(monkeypatch, "oracledb", SimpleNamespace())
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.core.llms.llm",
+        SimpleNamespace(Llm=lambda model: f"llm:{model}"),
+    )
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.core.embedders.embedder",
+        SimpleNamespace(Embedder=lambda model: f"embed:{model}"),
+    )
+    _install_module(
+        monkeypatch,
+        "oracleagentmemory.apis.thread",
+        SimpleNamespace(Message=Message),
+    )
+    sys.modules["oracleagentmemory.core"].OracleAgentMemory = OracleAgentMemory
+    store = OracleAgentMemoryStore(connection=object(), model="gpt-4o")
+    await store.ingest(
+        [Session(label="2026/01/02", messages=[ContextMessage("user", "hi")])]
+    )
+    assert added[0].kwargs["content"] == "Conversation date: 2026/01/02"
+    assert added[1].kwargs["content"] == "hi"

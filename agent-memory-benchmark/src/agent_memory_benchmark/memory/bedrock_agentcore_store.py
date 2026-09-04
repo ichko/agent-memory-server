@@ -46,14 +46,17 @@ class BedrockAgentCoreStore(AnsweringStore):
         for index, session in enumerate(sessions):
             session_id = f"{self._user_id}-{index}"
             self._sessions.append(session_id)
-            messages = [
+            messages: list[tuple[str, str]] = []
+            if session.label:
+                messages.append((f"Conversation date: {session.label}", "USER"))
+            messages.extend(
                 (
                     item.text,
                     "USER" if normalize_role(item.speaker) == "user" else "ASSISTANT",
                 )
                 for item in session.messages
                 if item.text.strip()
-            ]
+            )
             await asyncio.to_thread(
                 self._client.create_event,
                 memory_id=self._memory_id,

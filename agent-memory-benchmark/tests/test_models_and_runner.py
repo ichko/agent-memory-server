@@ -19,7 +19,7 @@ from agent_memory_benchmark.datasets.models import (
     QAPair,
     Session,
 )
-from agent_memory_benchmark.memory import QueryResult, TokenUsage
+from agent_memory_benchmark.memory import MemoryStore, QueryResult, TokenUsage
 
 
 def _answer(**overrides: Any) -> AnswerRecord:
@@ -350,3 +350,17 @@ async def test_v1_runner_rejects_resume_with_different_configuration(
             limit=1,
             retries=1,
         )
+
+
+@pytest.mark.asyncio
+async def test_memories_skips_inherited_extraction_wait() -> None:
+    class SyncStore:
+        listed = 0
+        wait_for_extraction = MemoryStore.wait_for_extraction
+
+        async def list_memories(self) -> list[str]:
+            type(self).listed += 1
+            return ["ready"]
+
+    assert await runner._memories(SyncStore()) == ["ready"]
+    assert SyncStore.listed == 1
