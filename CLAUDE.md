@@ -10,3 +10,14 @@ For the server, see [`V0/AGENTS.md`](./V0/AGENTS.md) and
 [`agent-memory-benchmark/README.md`](./agent-memory-benchmark/README.md).
 
 Run commands from inside the project directory, not from the repository root.
+
+Keep the repository narrative intact when changing landing or project context:
+
+- `V0/` is intentionally preserved as the pivotal open research foundation that
+  informed Redis Agent Memory productization, not as the supported production
+  distribution.
+- Redis Agent Memory in Redis Iris is the official product path; keep its
+  create-service and SDK/API quickstarts easy to find.
+- The benchmark is an open audit and reproducibility surface, not a timeless
+  vendor ranking. Benchmark claims must name the provider configuration, split,
+  models, retrieval settings, artifacts, and run date.

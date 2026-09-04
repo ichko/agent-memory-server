@@ -152,7 +152,9 @@ async def test_bedrock_reset_deletes_remote_events(
 
         def list_memory_records(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
             calls.append(("list_memory_records", kwargs))
-            return {"memoryRecords": [{"memoryRecordId": "m1", "content": {"text": "t"}}]}
+            return {
+                "memoryRecords": [{"memoryRecordId": "m1", "content": {"text": "t"}}]
+            }
 
         def delete_memory_record(self, **kwargs: Any) -> None:
             calls.append(("delete_memory_record", kwargs))
