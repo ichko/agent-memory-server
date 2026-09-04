@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import inspect
 from typing import Any
 
 import pytest
 
 import agent_memory_benchmark.memory.common as common
 from agent_memory_benchmark.memory import (
+    MemoryStore,
     QueryResult,
     TokenUsage,
     normalize_role,
@@ -131,6 +133,13 @@ async def test_wait_for_extraction_waits_until_count_is_stable() -> None:
     )
     assert memories == ["first", "second"]
     assert store.calls >= 4
+
+
+def test_wait_for_extraction_defaults_cover_async_extraction() -> None:
+    params = inspect.signature(MemoryStore.wait_for_extraction).parameters
+    assert params["timeout"].default == 1800
+    assert params["poll_interval"].default == 15
+    assert params["stable_seconds"].default == 30
 
 
 @pytest.mark.asyncio

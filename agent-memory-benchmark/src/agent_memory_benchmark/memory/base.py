@@ -112,9 +112,9 @@ class MemoryStore(ABC):
     async def wait_for_extraction(
         self,
         *,
-        timeout: float = 120,
-        poll_interval: float = 2,
-        stable_seconds: float = 4,
+        timeout: float = 1800,
+        poll_interval: float = 15,
+        stable_seconds: float = 30,
     ) -> list[str]:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout

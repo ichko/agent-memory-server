@@ -54,16 +54,20 @@ class _Mem0:
     def from_config(cls, config: dict[str, Any]) -> _Mem0:
         return cls()
 
-    def search(self, query: str, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
+    def search(self, query: str, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
         self.calls.append(("search", (query,), kwargs))
-        return {"results": [{"memory": "likes coffee"}]}
+        return {
+            "results": [
+                {"memory": "likes coffee", "metadata": {"date": "2026/01/02"}}
+            ]
+        }
 
     def get_all(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
         self.calls.append(("get_all", (), kwargs))
         return {"results": [{"memory": "likes coffee"}]}
 
-    def add(self, *_args: Any, **_kwargs: Any) -> None:
-        return None
+    def add(self, messages: Any, *_args: Any, **kwargs: Any) -> None:
+        self.calls.append(("add", (messages,), kwargs))
 
     def delete_all(self, **kwargs: Any) -> None:
         self.calls.append(("delete_all", (), kwargs))
@@ -76,12 +80,21 @@ async def test_mem0_search_and_list_use_v2_filters(
     _install_module(monkeypatch, "mem0", SimpleNamespace(Memory=_Mem0))
     monkeypatch.setattr(common, "generate_answer", _fake_answer)
     store = Mem0MemoryStore(user_id="u1", search_limit=7)
+    await store.ingest(
+        [Session(label="2026/01/02", messages=[ContextMessage("user", "I like coffee")])]
+    )
     memories = await store.list_memories()
-    await store.query("drink?")
+    result = await store.query("drink?")
+    assert store._memory.calls[0][0] == "add"
+    assert store._memory.calls[0][1][0][0] == {
+        "role": "user",
+        "content": "Conversation date: 2026/01/02",
+    }
     assert memories == ["likes coffee"]
-    assert store._memory.calls[0] == ("get_all", (), {"filters": {"user_id": "u1"}})
-    assert store._memory.calls[1][0] == "search"
-    assert store._memory.calls[1][2] == {"filters": {"user_id": "u1"}, "top_k": 7}
+    assert result.answer == "Conversation date: 2026/01/02\nlikes coffee"
+    assert store._memory.calls[1] == ("get_all", (), {"filters": {"user_id": "u1"}})
+    assert store._memory.calls[2][0] == "search"
+    assert store._memory.calls[2][2] == {"filters": {"user_id": "u1"}, "top_k": 7}
 
 
 @pytest.mark.asyncio
