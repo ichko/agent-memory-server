@@ -152,7 +152,9 @@ async def test_redis_agent_memory_reset_raises_when_memory_delete_fails() -> Non
             "/long-term-memory/search"
         ):
             return httpx.Response(200, json={"items": [{"id": "m1", "text": "left"}]})
-        if request.method == "DELETE" and request.url.path.endswith("/long-term-memory"):
+        if request.method == "DELETE" and request.url.path.endswith(
+            "/long-term-memory"
+        ):
             return httpx.Response(500, json={"error": "failed"})
         raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
 

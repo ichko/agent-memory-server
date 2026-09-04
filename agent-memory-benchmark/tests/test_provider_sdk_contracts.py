@@ -58,9 +58,7 @@ class _Mem0:
     def search(self, query: str, **kwargs: Any) -> dict[str, list[dict[str, Any]]]:
         self.calls.append(("search", (query,), kwargs))
         return {
-            "results": [
-                {"memory": "likes coffee", "metadata": {"date": "2026/01/02"}}
-            ]
+            "results": [{"memory": "likes coffee", "metadata": {"date": "2026/01/02"}}]
         }
 
     def get_all(self, **kwargs: Any) -> dict[str, list[dict[str, str]]]:
@@ -359,9 +357,7 @@ async def test_supermemory_prefers_singular_container_tag() -> None:
     store._user_id = "u1"
     store._documents = []
     store._document_ids = set()
-    await store.ingest(
-        [Session(label="now", messages=[ContextMessage("user", "hi")])]
-    )
+    await store.ingest([Session(label="now", messages=[ContextMessage("user", "hi")])])
     assert seen[0]["container_tag"] == "u1"
     assert "container_tags" not in seen[0]
 

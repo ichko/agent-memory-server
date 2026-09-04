@@ -75,7 +75,7 @@ def test_score_parser_uses_standalone_yes_or_no(response: str, expected: int) ->
     assert _score(response) == expected
 
 
-def test_compute_metrics_excludes_unparseable_and_macro_averages_types() -> None:
+def test_compute_metrics_excludes_unparsable_and_macro_averages_types() -> None:
     answers = [
         _answer("q1", "type-a", example_idx=1),
         _answer("q2", "type-a", example_idx=2),
@@ -94,7 +94,7 @@ def test_compute_metrics_excludes_unparseable_and_macro_averages_types() -> None
     assert metrics["overall"] == {"count": 3, "accuracy": 0.6667}
     assert metrics["task_averaged_accuracy"] == 0.75
     assert metrics["abstention"] == {"count": 1, "accuracy": 1.0}
-    assert metrics["unparseable"] == 1
+    assert metrics["unparsable"] == 1
     assert metrics["per_question_type"] == {
         "type-a": {"count": 2, "accuracy": 0.5},
         "type-b": {"count": 1, "accuracy": 1.0},
@@ -108,7 +108,7 @@ def test_compute_metrics_handles_no_valid_scores() -> None:
     assert metrics["overall"] == {"count": 0, "accuracy": None}
     assert metrics["task_averaged_accuracy"] is None
     assert metrics["abstention"] == {"count": 0, "accuracy": None}
-    assert metrics["unparseable"] == 1
+    assert metrics["unparsable"] == 1
     assert metrics["per_question_type"] == {}
 
 

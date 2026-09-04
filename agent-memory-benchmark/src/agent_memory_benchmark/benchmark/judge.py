@@ -136,7 +136,7 @@ def compute_metrics(
             else None
         ),
         "abstention": summary(abstention),
-        "unparseable": sum(row.score == -1 for row in judgments),
+        "unparsable": sum(row.score == -1 for row in judgments),
         "per_question_type": {
             name: summary(scores) for name, scores in sorted(by_type.items())
         },

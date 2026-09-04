@@ -73,9 +73,7 @@ class OracleAgentMemoryStore(AnsweringStore):
                     Message(
                         role="user",
                         content=f"Conversation date: {session.label}",
-                        timestamp=(
-                            session.date.isoformat() if session.date else None
-                        ),
+                        timestamp=(session.date.isoformat() if session.date else None),
                     )
                 )
             messages.extend(
